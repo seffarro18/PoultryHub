@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(curl -sf http://localhost:8443/ -o /dev/null -w \"HTTP %{http_code}\\\\n\")",
+      "Bash(curl -s http://localhost:8443/)",
+      "Bash(node -e \"console.log\\(require\\('@supabase/supabase-js/package.json'\\).version\\)\")",
+      "Bash(npx tsc *)",
+      "PowerShell(Get-Command pnpm -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Command npm -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Command mise -ErrorAction SilentlyContinue)",
+      "PowerShell(npm install react-router-dom recharts 2>&1)",
+      "Bash(grep -iE \"^\\(layout-dashboard|warehouse|tractor|map-pin|users-round|shield-check|key-round|egg|bird|wheat|heart-pulse|trending-down|trending-up|wallet|shopping-cart|receipt|bar-chart-3|file-bar-chart|package-search|file-spreadsheet|gauge|download|bell|history|database-backup|settings|sliders-horizontal|palette|lock|mail|database|wrench|user-circle|log-out|users|search\\)\\\\.js$\")",
+      "PowerShell(npm run build 2>&1)"
+    ]
+  }
+}

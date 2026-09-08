@@ -3,6 +3,7 @@ dist/
 build/
 .cache/
 .env*
+!.env.example
 .vite/
 vite.config.*.timestamp-*
 *.tsbuildinfo
@@ -11,3 +12,44 @@ logs/
 *.log
 .claude-replay.*
 .tmp-*
+.DS_Store
+Thumbs.db
+
+# Claude Code local settings — machine/user-specific permission overrides, not shared config
+.claude/settings.local.json
+
+# Keys, certs, and credential files — should never be committed no matter where they turn up
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+id_ecdsa*
+.npmrc
+.netrc
+service-account*.json
+*-service-account.json
+google-credentials*.json
+.aws/
+.gcp/
+
+# Deployment platform CLIs can cache project tokens locally
+.vercel/
+.netlify/
+
+# Local database exports — could contain real user data pulled from Supabase
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+
+# Supabase CLI local state — only appears if the CLI is ever run locally in this project
+supabase/.temp/
+supabase/.branches/
+
+# Editor/patch backup files can carry stale copies of secrets
+*.bak
+*.orig

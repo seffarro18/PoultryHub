@@ -1,0 +1,10 @@
+{
+  "description": "Monitor and manage poultry farm operations including egg production, inventory, health, feeds, sales, and analytics through an integrated platform.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

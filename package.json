@@ -1,0 +1,20 @@
+{
+  "name": "poultryhub",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm run dev:superadmin",
+    "dev:superadmin": "pnpm --filter @poultryhub/superadmin dev",
+    "dev:mobile": "pnpm --filter @poultryhub/mobile dev",
+    "build": "pnpm run build:mobile && pnpm run build:superadmin",
+    "build:superadmin": "pnpm --filter @poultryhub/superadmin build",
+    "build:mobile": "pnpm --filter @poultryhub/mobile build",
+    "preview": "pnpm --filter @poultryhub/superadmin preview",
+    "format": "oxfmt"
+  },
+  "devDependencies": {
+    "oxfmt": "^0.2.0",
+    "typescript": "^5.7.0"
+  }
+}

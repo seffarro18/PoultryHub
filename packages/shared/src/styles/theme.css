@@ -1,0 +1,215 @@
+@theme inline {
+  --color-background: #F8FAF8;
+  --color-foreground: #263238;
+  --color-card: #ffffff;
+  --color-primary: #2E7D32;
+  --color-primary-light: #66BB6A;
+  --color-accent: #FFC107;
+  --color-border: #E5E7EB;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-high: #F97316;
+  --color-danger: #EF4444;
+  --color-muted: #6B7280;
+  --color-muted-bg: #F3F4F6;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Poppins', 'Inter', system-ui, sans-serif;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+}
+
+.dark {
+  --color-background: #0E1512;
+  --color-foreground: #E8EBE9;
+  --color-card: #161F1B;
+  --color-primary: #4CAF50;
+  --color-primary-light: #81C784;
+  --color-accent: #FFC107;
+  --color-border: rgba(255, 255, 255, 0.09);
+  --color-success: #34D399;
+  --color-warning: #FBBF24;
+  --color-high: #FB923C;
+  --color-danger: #F87171;
+  --color-muted: #9CA3AF;
+  --color-muted-bg: #1C2620;
+}
+
+/* Chart tokens — dataviz skill's validated reference palette, light/dark selected (not an auto flip). */
+:root {
+  --chart-text-secondary: #52514e;
+  --chart-muted: #898781;
+  --chart-grid: #e1e0d9;
+  --chart-baseline: #c3c2b7;
+  --chart-series-1: #2a78d6; /* blue */
+  --chart-series-2: #eb6834; /* orange */
+  --chart-series-3: #1baf7a; /* aqua */
+  --chart-series-4: #eda100; /* yellow */
+  --chart-series-5: #e87ba4; /* magenta */
+  --chart-series-7: #4a3aa7; /* violet */
+  --chart-series-8: #e34948; /* red */
+}
+
+.dark {
+  --chart-text-secondary: #c3c2b7;
+  --chart-muted: #898781;
+  --chart-grid: #2c2c2a;
+  --chart-baseline: #383835;
+  --chart-series-1: #3987e5;
+  --chart-series-2: #d95926;
+  --chart-series-3: #199e70;
+  --chart-series-4: #c98500;
+  --chart-series-5: #d55181;
+  --chart-series-7: #9085e9;
+  --chart-series-8: #e66767;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/*
+ * html/body/#root used hardcoded light colors here before, independent of
+ * the --color-background/--color-foreground variables .dark already
+ * redefines above — so toggling the app's own Light/Dark/System Appearance
+ * setting correctly recolored every themed component (they all read the
+ * variables directly), but the true document root never did, since
+ * `html.dark { background-color: var(--color-background) }` only takes
+ * effect once `.dark` is literally the className on <html> AND the rule
+ * it's overriding wasn't itself variable-driven. Any gap between the
+ * themed content's actual box and the real viewport (overscroll bounce,
+ * safe-area insets, a shorter-than-100dvh page) showed that hardcoded
+ * light background through as a stray white/gray edge. Using the
+ * variables directly on the base rule (not a separate .dark override)
+ * fixes this for both apps and all three Appearance modes at once — the
+ * variable's resolved value already flips with .dark on <html>, exactly
+ * as ThemeContext already sets it.
+ */
+html {
+  font-family: var(--font-sans);
+  color: var(--color-foreground);
+  background-color: var(--color-background);
+  min-height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  /* Stops iOS/Android's rubber-band overscroll from revealing whatever's
+     behind the document (historically the browser's own white default)
+     past the top/bottom edge of themed content. */
+  overscroll-behavior: none;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Scrollbar hiding */
+::-webkit-scrollbar {
+  width: 0;
+  background: transparent;
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid #2E7D32;
+  outline-offset: 2px;
+}
+
+/* Spinner */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+/* Success confirmation — a small scale-in for checkmarks (Toast, inline CRUD confirmations), never a bounce. */
+@keyframes successPop {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.success-pop {
+  animation: successPop 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .success-pop {
+    animation: none;
+  }
+}
+
+/* Smooth fade-in */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.5s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-in-up {
+    animation: none;
+  }
+}
+
+/* Print — used by "Print / Save as PDF" report buttons (Health/Mortality Records
+   and any future oversight page). Hides the app chrome so only the page's own
+   content prints; pages opt individual elements out via Tailwind's `print:hidden`. */
+@media print {
+  aside,
+  header,
+  nav[aria-label="Primary"] {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+}
+
+/* Applies to every <input type="number"> in both apps, present and future —
+   no per-component fix needed. Quantity/count fields keep validating and
+   submitting exactly as before; this only hides the browser's native
+   up/down spinner UI, with no +/- replacement. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

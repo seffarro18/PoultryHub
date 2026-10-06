@@ -1,0 +1,36 @@
+{
+  "name": "@poultryhub/shared",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    "./components/*": "./src/components/*.tsx",
+    "./config/*": "./src/config/*.ts",
+    "./constants/*": "./src/constants/*.ts",
+    "./context/*": "./src/context/*.tsx",
+    "./hooks/*": "./src/hooks/*.ts",
+    "./lib/*": "./src/lib/*.ts",
+    "./pages/*": "./src/pages/*.tsx",
+    "./routes/*": "./src/routes/*.tsx",
+    "./services/*": "./src/services/*.ts",
+    "./styles/theme.css": "./src/styles/theme.css",
+    "./types/*": "./src/types/*.ts",
+    "./validation/*": "./src/validation/*.ts"
+  },
+  "peerDependencies": {
+    "@hookform/resolvers": "^5.7.1",
+    "@supabase/supabase-js": "^2.112.3",
+    "framer-motion": "^12.43.0",
+    "lucide-react": "^1.28.0",
+    "react": "^19.0.0",
+    "react-hook-form": "^7.84.0",
+    "react-router-dom": "^7.18.2",
+    "recharts": "^3.10.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0",
+    "vite": "^8.0.0"
+  }
+}

@@ -24,6 +24,11 @@ export default defineConfig({
     exclude: ['@poultryhub/shared'],
   },
   envDir: path.resolve(__dirname, '../..'),
+
+  build: {
+  outDir: path.resolve(__dirname, './dist'),
+  },
+  
   server: {
     host: '0.0.0.0',
     port: 5173,

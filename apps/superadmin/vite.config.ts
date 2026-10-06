@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => {
     build: {
       // .figma/make/deploy[-preview] hardcode `--build-dir dist` resolved at
       // the repo root — keep shipping there so those untouched scripts keep working.
-      outDir: path.resolve(__dirname, '../../dist'),
+      outDir: path.resolve(__dirname, './dist'),
       emptyOutDir: true,
       sourcemap: emitSourcemaps ? 'inline' : false,
       minify: !emitSourcemaps,

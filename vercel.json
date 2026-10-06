@@ -3,4 +3,3 @@
   "buildCommand": "pnpm --filter @poultryhub/superadmin build",
   "outputDirectory": "apps/superadmin/dist"
 }
-

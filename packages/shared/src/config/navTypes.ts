@@ -5,6 +5,8 @@ export interface NavLink {
   label: string;
   path: string;
   icon: LucideIcon;
+  /** Extra path prefixes that should also count as this link being "active" — e.g. the mobile bottom nav's Inventory tab also covers the separate /farm/feed, /farm/vitamins, /farm/mortality alias routes, which don't share its own `path` as a literal prefix. Defaults to [path] when omitted. */
+  matchPaths?: string[];
 }
 
 export interface NavGroup {

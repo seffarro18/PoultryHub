@@ -99,7 +99,7 @@ export default function FarmPoultryInventoryPage() {
         Event: EVENT_TYPE_LABELS[e.eventType],
         Quantity: e.quantity,
         Breed: e.breed ?? "",
-        Age: e.ageLabel ?? "",
+        Age: e.ageWeeks != null ? `${e.ageWeeks} weeks` : "",
         Source: e.source ?? "",
         "From/To": [e.fromHousePen, e.toHousePen].filter(Boolean).join(" → "),
         "Recorded By": e.recordedByName ?? "",

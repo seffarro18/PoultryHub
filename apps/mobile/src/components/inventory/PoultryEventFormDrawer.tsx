@@ -3,6 +3,7 @@ import { Loader2, X } from "lucide-react";
 import { createInventoryEvent, currentStockByHouse, updateInventoryEvent } from "@poultryhub/shared/services/poultryInventoryService";
 import { listLayerBreeds } from "@poultryhub/shared/services/layerBreedService";
 import { filterIntegerText, parseNumericText, stripLeadingZeros } from "@poultryhub/shared/lib/numericInput";
+import { getLayerAgeStage, getLayerAgeWeekGroups } from "@poultryhub/shared/lib/layerAge";
 import { useToast } from "@poultryhub/shared/components/ui/ToastContext";
 import type { PoultryEvent, PoultryEventInput, PoultryEventType } from "@poultryhub/shared/types/poultryInventory";
 import type { EggColor } from "@poultryhub/shared/types/layerBreed";
@@ -34,6 +35,9 @@ const DEFAULT_STATUS_BY_EVENT_TYPE: Partial<Record<PoultryEventType, string>> = 
   culling: "Culled",
   count_update: "Active",
 };
+
+/** Static 1-100 week list, grouped by production stage for the Age <optgroup> dropdown — computed once at module load, not per render. */
+const ageWeekGroups = getLayerAgeWeekGroups();
 
 interface PoultryEventFormDrawerProps {
   /** null = create mode */
@@ -70,7 +74,7 @@ function toInputState(event: PoultryEvent | null, fixedFarmId: string, defaultEv
       toHousePenId: event.toHousePenId,
       notes: event.notes,
       breed: event.breed,
-      ageLabel: event.ageLabel,
+      ageWeeks: event.ageWeeks,
       source: event.source,
       status: event.status,
     };
@@ -87,7 +91,7 @@ function toInputState(event: PoultryEvent | null, fixedFarmId: string, defaultEv
     toHousePenId: null,
     notes: null,
     breed: null,
-    ageLabel: null,
+    ageWeeks: null,
     source: null,
     status: DEFAULT_STATUS_BY_EVENT_TYPE[defaultEventType] ?? "Active",
   };
@@ -182,7 +186,7 @@ export default function PoultryEventFormDrawer({
       toHousePenId: null,
       toHousePen: null,
       breed: null,
-      ageLabel: null,
+      ageWeeks: null,
       source: null,
     }));
     setQuantityText("");
@@ -216,6 +220,10 @@ export default function PoultryEventFormDrawer({
     }
     if (input.eventType === "arrival" && !input.breed) {
       setError("Please select a layer breed/strain.");
+      return;
+    }
+    if (input.eventType === "arrival" && !input.ageWeeks) {
+      setError("Please select the layer's age.");
       return;
     }
 
@@ -416,16 +424,29 @@ export default function PoultryEventFormDrawer({
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="age-label" className="text-sm font-medium text-[var(--color-foreground)]">
+                  <label htmlFor="age-weeks" className="text-sm font-medium text-[var(--color-foreground)]">
                     Age
                   </label>
-                  <input
-                    id="age-label"
-                    value={input.ageLabel ?? ""}
-                    onChange={(e) => setInput((prev) => ({ ...prev, ageLabel: e.target.value || null }))}
-                    placeholder="e.g. 6 weeks"
+                  <select
+                    id="age-weeks"
+                    value={input.ageWeeks ?? ""}
+                    onChange={(e) => setInput((prev) => ({ ...prev, ageWeeks: e.target.value ? Number(e.target.value) : null }))}
                     className="rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)]"
-                  />
+                  >
+                    <option value="">Select age</option>
+                    {ageWeekGroups.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.weeks.map((week) => (
+                          <option key={week} value={week}>
+                            {week} {week === 1 ? "week" : "weeks"}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  {input.ageWeeks && (
+                    <p className="text-xs text-[var(--color-muted)]">{getLayerAgeStage(input.ageWeeks)}</p>
+                  )}
                 </div>
               </div>
             )}

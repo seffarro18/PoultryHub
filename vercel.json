@@ -1,3 +1,6 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "installCommand": "pnpm install",
+  "buildCommand": "pnpm --filter @poultryhub/superadmin build",
+  "outputDirectory": "apps/superadmin/dist"
 }
+

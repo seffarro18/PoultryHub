@@ -215,7 +215,7 @@ export default function PoultryStockPanel({
                       <td className="px-4 py-3 text-[var(--color-muted)]">{EVENT_TYPE_LABELS[event.eventType]}</td>
                       <td className="px-4 py-3 text-[var(--color-foreground)]">{event.quantity.toLocaleString()}</td>
                       <td className="px-4 py-3 text-[var(--color-muted)]">{event.breed ?? "—"}</td>
-                      <td className="px-4 py-3 text-[var(--color-muted)]">{event.ageLabel ?? "—"}</td>
+                      <td className="px-4 py-3 text-[var(--color-muted)]">{event.ageWeeks != null ? `${event.ageWeeks} weeks` : "—"}</td>
                       <td className="px-4 py-3 text-[var(--color-muted)]">{event.source ?? "—"}</td>
                       <td className="px-4 py-3 text-[var(--color-muted)]">
                         {[event.fromHousePen, event.toHousePen].filter(Boolean).join(" → ") || "—"}

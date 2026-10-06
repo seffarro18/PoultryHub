@@ -19,7 +19,7 @@ interface PoultryEventRow {
   recorded_by: string | null;
   created_at: string;
   breed: string | null;
-  age_label: string | null;
+  age_weeks: number | null;
   source: string | null;
   status: string | null;
   farms: { name: string } | null;
@@ -44,7 +44,7 @@ function mapRow(row: PoultryEventRow): PoultryEvent {
     recordedByName: row.recorded_by_profile?.name ?? null,
     createdAt: row.created_at,
     breed: row.breed,
-    ageLabel: row.age_label,
+    ageWeeks: row.age_weeks,
     source: row.source,
     status: row.status,
   };
@@ -53,7 +53,7 @@ function mapRow(row: PoultryEventRow): PoultryEvent {
 const EVENT_SELECT = `
   id, farm_id, event_date, bird_type, event_type, quantity,
   from_house_pen, from_house_id, to_house_pen, to_house_id, notes, recorded_by, created_at,
-  breed, age_label, source, status,
+  breed, age_weeks, source, status,
   farms ( name ),
   recorded_by_profile:profiles!recorded_by ( name )
 `;
@@ -80,7 +80,7 @@ function toRow(input: PoultryEventInput) {
     to_house_id: input.toHousePenId,
     notes: input.notes,
     breed: input.breed,
-    age_label: input.ageLabel,
+    age_weeks: input.ageWeeks,
     source: input.source,
     status: input.status,
   };

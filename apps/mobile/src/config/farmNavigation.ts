@@ -176,7 +176,18 @@ const operationsTab: NavLink = { type: "link", label: "Operations", path: FARM_O
 const productionTab: NavLink = { type: "link", label: "Production", path: FARM_EGG_PRODUCTION_PATH, icon: Egg };
 // Points straight at Poultry Inventory rather than the generic hub page — that
 // hub now only ever has the one item, so the intermediate hub screen is skipped.
-const inventoryHubTab: NavLink = { type: "link", label: "Inventory", path: FARM_POULTRY_INVENTORY_PATH, icon: Boxes };
+// matchPaths covers Feed/Vitamins/Mortality too — those are separate top-level
+// alias routes into this same page (see FARM_FEED_PATH's own doc comment),
+// not nested children of FARM_POULTRY_INVENTORY_PATH, so without this the tab
+// wouldn't highlight when a Quick Action or notification lands on one of them
+// directly instead of via this tab.
+const inventoryHubTab: NavLink = {
+  type: "link",
+  label: "Inventory",
+  path: FARM_POULTRY_INVENTORY_PATH,
+  icon: Boxes,
+  matchPaths: [FARM_POULTRY_INVENTORY_PATH, FARM_FEED_PATH, FARM_VITAMINS_PATH, FARM_MORTALITY_PATH],
+};
 const profileTab: NavLink = { type: "link", label: "Profile", path: FARM_ACCOUNT_PATH, icon: CircleUserRound };
 
 // Notifications isn't its own bottom tab — the topbar's notification bell
@@ -188,7 +199,23 @@ export function getFarmBottomNav(role: UserRole): NavLink[] {
   if (role === "Staff") {
     return [homeTab, tasksLink, productionTab, inventoryHubTab, profileTab];
   }
-  return [homeTab, tasksLink, operationsTab, reportsLink, profileTab];
+  // Operations' own matchPaths mirror everything reachable through the hub
+  // (see getOperationsHubItems below) plus Inventory's own feed/vitamin/
+  // mortality aliases — so landing on any of those pages directly (a Quick
+  // Action, a notification link, a deep link) highlights Operations exactly
+  // as if the user had drilled in through the hub tab itself. Tasks' own
+  // path is deliberately excluded — it already has its own dedicated tab,
+  // and including it here would light up two tabs at once.
+  const operationsMatchPaths = [
+    FARM_OPERATIONS_PATH,
+    ...getOperationsHubItems(role)
+      .map((item) => item.path)
+      .filter((path) => path !== FARM_TASKS_PATH),
+    FARM_FEED_PATH,
+    FARM_VITAMINS_PATH,
+    FARM_MORTALITY_PATH,
+  ];
+  return [homeTab, tasksLink, { ...operationsTab, matchPaths: operationsMatchPaths }, reportsLink, profileTab];
 }
 
 // Explicit, ordered list rather than filtering farmAdminNavigation — Tasks

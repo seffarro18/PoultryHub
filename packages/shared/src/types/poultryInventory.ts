@@ -23,7 +23,8 @@ export interface PoultryEvent {
   createdAt: string;
   /** Batch-descriptive fields — meaningful mainly on "arrival" rows, blank elsewhere. */
   breed: string | null;
-  ageLabel: string | null;
+  /** Layer age in weeks (1-100), selected from a fixed dropdown — never free text. */
+  ageWeeks: number | null;
   source: string | null;
   status: string | null;
 }
@@ -40,7 +41,7 @@ export interface PoultryEventInput {
   toHousePenId: string | null;
   notes: string | null;
   breed: string | null;
-  ageLabel: string | null;
+  ageWeeks: number | null;
   source: string | null;
   status: string | null;
 }

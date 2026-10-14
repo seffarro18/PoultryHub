@@ -1,6 +1,7 @@
 import { supabase } from "./supabaseClient";
 import { BIRD_TYPES, type BirdType, type PoultryEvent, type PoultryEventInput } from "../types/poultryInventory";
 import type { MortalityRecord } from "../types/mortality";
+import type { ProductionStatus } from "../types/eggProduction";
 
 export { listFarms, createFarm } from "./eggProductionService";
 
@@ -22,8 +23,12 @@ interface PoultryEventRow {
   age_weeks: number | null;
   source: string | null;
   status: string | null;
+  review_status: ProductionStatus;
+  review_notes: string | null;
+  reviewed_at: string | null;
   farms: { name: string } | null;
   recorded_by_profile: { name: string } | null;
+  reviewed_by_profile: { name: string } | null;
 }
 
 function mapRow(row: PoultryEventRow): PoultryEvent {
@@ -47,15 +52,20 @@ function mapRow(row: PoultryEventRow): PoultryEvent {
     ageWeeks: row.age_weeks,
     source: row.source,
     status: row.status,
+    reviewStatus: row.review_status,
+    reviewNotes: row.review_notes,
+    reviewedAt: row.reviewed_at,
+    reviewedByName: row.reviewed_by_profile?.name ?? null,
   };
 }
 
 const EVENT_SELECT = `
   id, farm_id, event_date, bird_type, event_type, quantity,
   from_house_pen, from_house_id, to_house_pen, to_house_id, notes, recorded_by, created_at,
-  breed, age_weeks, source, status,
+  breed, age_weeks, source, status, review_status, review_notes, reviewed_at,
   farms ( name ),
-  recorded_by_profile:profiles!recorded_by ( name )
+  recorded_by_profile:profiles!recorded_by ( name ),
+  reviewed_by_profile:profiles!reviewed_by ( name )
 `;
 
 export async function listInventoryEvents(): Promise<PoultryEvent[]> {
@@ -94,6 +104,17 @@ export async function createInventoryEvent(input: PoultryEventInput): Promise<vo
 export async function updateInventoryEvent(id: string, input: PoultryEventInput): Promise<void> {
   const { error } = await supabase.from("poultry_inventory_events").update(toRow(input)).eq("id", id);
   if (error) throw error;
+}
+
+/** Farm Admin/Manager only. Atomic server-side (review_poultry_event, migration 0041): refuses anything no longer pending, and on approval re-checks the source house/pen can't go negative. */
+export async function reviewInventoryEvent(id: string, approve: boolean, notes?: string): Promise<void> {
+  const { error } = await supabase.rpc("review_poultry_event", { p_event_id: id, p_approve: approve, p_notes: notes ?? null });
+  if (error) throw error;
+}
+
+/** Only approved events are official stock — pending Staff submissions and rejected ones never count. Every stock figure below goes through this. */
+function officialEvents(events: PoultryEvent[]): PoultryEvent[] {
+  return events.filter((event) => event.reviewStatus === "approved");
 }
 
 export async function deleteInventoryEvent(id: string): Promise<void> {
@@ -153,10 +174,10 @@ function approvedMortalityTotals(mortalityRecords: MortalityRecord[]): {
  */
 export function currentStockByType(events: PoultryEvent[], mortalityRecords: MortalityRecord[] = []): Record<BirdType, number> {
   const totals = Object.fromEntries(BIRD_TYPES.map((type) => [type, 0])) as Record<BirdType, number>;
-  for (const event of events) {
+  for (const event of officialEvents(events)) {
     if (event.eventType === "transfer" || event.eventType === "mortality") continue;
     const signed = event.eventType === "sale" || event.eventType === "culling" ? -event.quantity : event.quantity;
-    totals[event.birdType] += signed;
+    if (event.birdType in totals) totals[event.birdType] += signed;
   }
   const { byType } = approvedMortalityTotals(mortalityRecords);
   for (const type of BIRD_TYPES) {
@@ -183,7 +204,7 @@ export function currentStockByHouse(events: PoultryEvent[]): Record<string, numb
     if (!houseId) return;
     totals[houseId] = (totals[houseId] ?? 0) + delta;
   };
-  for (const event of events) {
+  for (const event of officialEvents(events)) {
     if (event.eventType === "mortality") continue;
     if (event.eventType === "transfer") {
       add(event.fromHousePenId, -event.quantity);
@@ -207,7 +228,7 @@ export interface FarmStockTotal {
 /** Total stock (all bird types) per farm, descending — same formula as currentStockByType, aggregated by farm instead of type. */
 export function currentStockByFarm(events: PoultryEvent[], mortalityRecords: MortalityRecord[] = []): FarmStockTotal[] {
   const totals = new Map<string, FarmStockTotal>();
-  for (const event of events) {
+  for (const event of officialEvents(events)) {
     if (event.eventType === "transfer" || event.eventType === "mortality") continue;
     const signed = event.eventType === "sale" || event.eventType === "culling" ? -event.quantity : event.quantity;
     const existing = totals.get(event.farmId);
@@ -273,7 +294,7 @@ export function aggregateArrivalsVsMortalityByDay(events: PoultryEvent[], mortal
       mortality: 0,
     };
 
-  for (const event of events) {
+  for (const event of officialEvents(events)) {
     if (event.eventType !== "arrival") continue;
     const bucket = bucketFor(event.eventDate);
     bucket.arrivals += event.quantity;

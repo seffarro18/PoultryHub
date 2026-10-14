@@ -9,7 +9,7 @@ interface TaskRow {
   assigned_to: string;
   created_by: string | null;
   status: Task["status"];
-  priority: Task["priority"];
+  house_id: string | null;
   house_pen: string | null;
   scheduled_start: string | null;
   scheduled_end: string | null;
@@ -18,6 +18,7 @@ interface TaskRow {
   updated_at: string;
   assigned_to_profile: { name: string } | null;
   created_by_profile: { name: string } | null;
+  house: { name: string } | null;
 }
 
 function mapTask(row: TaskRow): Task {
@@ -31,8 +32,9 @@ function mapTask(row: TaskRow): Task {
     createdById: row.created_by,
     createdByName: row.created_by_profile?.name ?? null,
     status: row.status,
-    priority: row.priority,
-    housePen: row.house_pen,
+    houseId: row.house_id,
+    // A renamed house shows its current name; legacy free text stays as written.
+    housePen: row.house?.name ?? row.house_pen,
     scheduledStart: row.scheduled_start,
     scheduledEnd: row.scheduled_end,
     completedAt: row.completed_at,
@@ -43,9 +45,10 @@ function mapTask(row: TaskRow): Task {
 
 const TASK_SELECT = `
   id, farm_id, title, description, assigned_to, created_by,
-  status, priority, house_pen, scheduled_start, scheduled_end, completed_at, created_at, updated_at,
+  status, house_id, house_pen, scheduled_start, scheduled_end, completed_at, created_at, updated_at,
   assigned_to_profile:profiles!assigned_to ( name ),
-  created_by_profile:profiles!created_by ( name )
+  created_by_profile:profiles!created_by ( name ),
+  house:poultry_houses ( name )
 `;
 
 /** RLS scopes this automatically — Farm Admin/Manager get their farm's tasks, Staff get only their own assigned ones. */
@@ -72,8 +75,8 @@ export async function createTask(input: TaskInput): Promise<void> {
     title: input.title,
     description: input.description,
     assigned_to: input.assignedToId,
-    priority: input.priority,
-    house_pen: input.housePen,
+    // house_pen is filled by the database from house_id (sync_task_house, 0047).
+    house_id: input.houseId,
     scheduled_start: input.scheduledStart,
     scheduled_end: input.scheduledEnd,
   });
@@ -87,8 +90,7 @@ export async function updateTask(id: string, input: TaskInput): Promise<void> {
       title: input.title,
       description: input.description,
       assigned_to: input.assignedToId,
-      priority: input.priority,
-      house_pen: input.housePen,
+      house_id: input.houseId,
       scheduled_start: input.scheduledStart,
       scheduled_end: input.scheduledEnd,
     })

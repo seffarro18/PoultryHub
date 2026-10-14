@@ -23,6 +23,7 @@ export interface EggProductionRecord {
   largeEggs: number;
   xLargeEggs: number;
   jumboEggs: number;
+  superJumboEggs: number;
   damagedCrackedEggs: number;
   eggsSold: number;
   recordedById: string | null;
@@ -49,6 +50,7 @@ export interface EggProductionInput {
   largeEggs: number;
   xLargeEggs: number;
   jumboEggs: number;
+  superJumboEggs: number;
   damagedCrackedEggs: number;
   eggsSold: number;
   notes: string | null;
@@ -71,7 +73,7 @@ export function traysForGoodEggs(goodEggsTotal: number): number {
   return goodEggsTotal / EGGS_PER_TRAY;
 }
 
-/** Good Eggs, broken out by size — the record fields Egg Pricing/Sales' 6-size taxonomy is checked against for per-size stock. */
+/** Good Eggs, broken out by size — the record fields Egg Pricing/Sales' 7-size taxonomy is checked against for per-size stock. */
 export const GOOD_EGGS_FIELD_BY_SIZE = {
   Peewee: "peeweeEggs",
   Small: "smallEggs",
@@ -79,4 +81,5 @@ export const GOOD_EGGS_FIELD_BY_SIZE = {
   Large: "largeEggs",
   "X Large": "xLargeEggs",
   Jumbo: "jumboEggs",
+  "Super Jumbo": "superJumboEggs",
 } as const satisfies Record<string, keyof EggProductionRecord>;

@@ -60,7 +60,14 @@ export default function CountUp({ value, className }: CountUpProps) {
       onUpdate: (latest) => setDisplay(format(latest, parsed)),
     });
     prevTarget.current = parsed.target;
-    return () => controls.stop();
+    return () => {
+      controls.stop();
+      // An interrupted animation must land on its target, not freeze mid-way:
+      // StrictMode's dev-only effect→cleanup→effect cycle stops it at 0, and
+      // the re-run then sees prevTarget === target and returns early, which
+      // left every dashboard KPI stuck displaying 0.
+      setDisplay(format(parsed.target, parsed));
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, reducedMotion]);
 

@@ -20,6 +20,107 @@ export const FEED_UNIT = "Sack";
  */
 export const FEED_PACKAGE_SIZES = ["25 kg", "50 kg"] as const;
 
+/** How a farm records feed consumption (production_settings.feed_consumption_unit, migration 0052). Stock itself is always kept in sacks. */
+export type FeedConsumptionUnit = "sack" | "kg";
+
+/** "50 kg" → 50; null when the batch has no sack size. Mirrors the database's feed_sack_kg(). */
+export function feedSackKg(packageSize: string | null): number | null {
+  const match = /([0-9]+(?:\.[0-9]+)?)\s*kg/i.exec(packageSize ?? "");
+  return match ? Number(match[1]) : null;
+}
+
+/** Display-only number formatting without trailing zeros (1, 0.5, 99.5, 4,975). */
+export function fmtFeedNumber(value: number): string {
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+/** Sack counts in whole + half notation: 0.5 → "½", 98.5 → "98½", 20 → "20". Amounts that aren't whole/half sacks (left by kg entries) fall back to decimals. */
+export function fmtSackCount(sacks: number): string {
+  const halves = Math.round(sacks * 2);
+  if (Math.abs(sacks * 2 - halves) > 1e-6) return fmtFeedNumber(sacks);
+  const whole = Math.floor(halves / 2);
+  const hasHalf = halves % 2 === 1;
+  if (!hasHalf) return whole.toLocaleString();
+  return `${whole > 0 ? whole.toLocaleString() : ""}½`;
+}
+
+/** "½ Sack", "1 Sack", "1½ Sacks", "98½ Sacks". */
+export function fmtSacks(sacks: number): string {
+  return `${fmtSackCount(sacks)} ${sacks > 0 && sacks <= 1 ? "Sack" : "Sacks"}`;
+}
+
+/**
+ * Every selectable sack quantity (½-sack steps) up to what's available —
+ * the Record Feed Distribution "Sack" choices. Staff pick, never type decimals.
+ */
+export function sackQuantityChoices(availableSacks: number): number[] {
+  const maxHalves = Math.floor(availableSacks * 2 + 1e-9);
+  return Array.from({ length: Math.max(0, maxHalves) }, (_, i) => (i + 1) / 2);
+}
+
+/** Today's date as YYYY-MM-DD in the device's own timezone (the farm's local day) — not toISOString(), which is UTC and rolls "today" back a day before 8 AM in UTC+8. */
+export function localIsoDate(date: Date = new Date()): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+type UsageFields = Pick<FeedDistributionRecord, "enteredQuantity" | "enteredUnit" | "quantityUsed" | "kgPerSack">;
+
+/** The physical weight a distribution consumed, from that record's own saved sack size (a kg entry is exactly what was typed). null = no sack size on record — never guessed. */
+export function feedUsageKg(record: UsageFields): number | null {
+  if (record.enteredUnit === "kg") return record.enteredQuantity;
+  return record.kgPerSack ? record.quantityUsed * record.kgPerSack : null;
+}
+
+/**
+ * A distribution in the farm's display unit, the other unit alongside:
+ * kg → "1,000 kg (40 Sacks)"; sack → "1½ Sacks (37.5 kg)". Without a display
+ * unit it follows how the record was entered. Each record converts with its
+ * own saved sack size.
+ */
+export function formatFeedUsage(record: UsageFields, mode: FeedConsumptionUnit = record.enteredUnit): string {
+  const kg = feedUsageKg(record);
+  if (kg === null) return fmtSacks(record.quantityUsed);
+  return mode === "kg" ? `${fmtFeedNumber(kg)} kg (${fmtSacks(record.quantityUsed)})` : `${fmtSacks(record.quantityUsed)} (${fmtFeedNumber(kg)} kg)`;
+}
+
+/**
+ * A total in the display unit. Sack mode sums sacks. Kg mode sums each part's
+ * own weight; any part with no sack size can't be weighed, so it's shown
+ * separately ("5,000 kg + 3 Sacks without a sack size") rather than guessed.
+ */
+function formatFeedTotal(parts: { sacks: number; kg: number | null }[], mode: FeedConsumptionUnit): string {
+  const sacks = parts.reduce((s, p) => s + p.sacks, 0);
+  if (mode === "sack") return fmtSacks(sacks);
+  const kg = parts.reduce((s, p) => s + (p.kg ?? 0), 0);
+  const unweighed = parts.filter((p) => p.kg === null).reduce((s, p) => s + p.sacks, 0);
+  return unweighed > 0 ? `${fmtFeedNumber(kg)} kg + ${fmtSacks(unweighed)} without a sack size` : `${fmtFeedNumber(kg)} kg`;
+}
+
+/** Total remaining feed stock: "160 Sacks" or "7,000 kg" — every batch weighed with its own sack size. */
+export function formatFeedStockTotal(batches: Pick<FeedBatch, "remainingStock" | "packageSize">[], mode: FeedConsumptionUnit): string {
+  return formatFeedTotal(
+    batches.map((b) => {
+      const kg = feedSackKg(b.packageSize);
+      return { sacks: b.remainingStock, kg: kg === null ? null : b.remainingStock * kg };
+    }),
+    mode
+  );
+}
+
+/** Total of the given distributions (callers pass approved ones only): "50 Sacks" or "1,500 kg". */
+export function formatFeedUsageTotal(records: UsageFields[], mode: FeedConsumptionUnit): string {
+  return formatFeedTotal(records.map((r) => ({ sacks: r.quantityUsed, kg: feedUsageKg(r) })), mode);
+}
+
+/** Batch stock in the farm's consumption unit, with the other unit alongside: "4,000 kg (80 Sacks × 50 kg)" or "80 Sacks × 50 kg (4,000 kg)". */
+export function formatFeedStock(sacks: number, packageSize: string | null, mode: FeedConsumptionUnit): string {
+  const kg = feedSackKg(packageSize);
+  if (kg === null) return fmtSacks(sacks);
+  const sackText = `${fmtSacks(sacks)} × ${fmtFeedNumber(kg)} kg`;
+  const kgText = `${fmtFeedNumber(sacks * kg)} kg`;
+  return mode === "kg" ? `${kgText} (${sackText})` : `${sackText} (${kgText})`;
+}
+
 /** "50 kg Sack" — the one combined label the Packaging / Sack Size field and every inventory/receipt display uses instead of showing Unit and Sack Size separately. */
 export function formatFeedPackaging(packageSize: string | null): string {
   return packageSize ? `${packageSize} Sack` : "—";
@@ -66,10 +167,25 @@ export const VITAMIN_UNIT_OPTIONS = [
 export type VitaminUnit = (typeof VITAMIN_UNIT_OPTIONS)[number]["value"];
 export const VITAMIN_UNIT_LABEL: Record<string, string> = Object.fromEntries(VITAMIN_UNIT_OPTIONS.map((o) => [o.value, o.label]));
 
+const UNIT_PLURAL: Record<string, string> = { Bottle: "Bottles", Pack: "Packs", Box: "Boxes", Sack: "Sacks" };
+
+/**
+ * Display name for a stored unit. Vitamin units are stored as short codes
+ * ("bot", "pack", "box") — never show those raw. Pass `quantity` to get the
+ * plural form when it isn't exactly 1 ("8 Bottles", "1 Bottle"); omit it for
+ * a bare singular label ("Quantity Used (Bottle)"). Unknown units (e.g. the
+ * feed unit "Sack") pass through unchanged apart from pluralisation.
+ */
+export function formatUnitLabel(unit: string, quantity?: number): string {
+  const label = VITAMIN_UNIT_LABEL[unit] ?? unit;
+  if (quantity === undefined || quantity === 1) return label;
+  return UNIT_PLURAL[label] ?? label;
+}
+
 /** Package Size options depend on which Unit is selected — a liquid size doesn't make sense for a box of tablets, so the form filters to just this unit's list rather than showing every size at once. */
 export const VITAMIN_PACKAGE_SIZES_BY_UNIT: Record<VitaminUnit, readonly string[]> = {
-  bot: ["100 ml bottle", "250 ml bottle", "500 ml bottle", "1 L bottle", "5 L container"],
-  pack: ["100 g pack", "250 g pack", "500 g pack", "1 kg pack"],
+  bot: ["25 ml bottle", "50 ml bottle", "100 ml bottle", "250 ml bottle", "500 ml bottle", "1 L bottle", "5 L container"],
+  pack: ["25 g pack", "50 g pack", "100 g pack", "250 g pack", "500 g pack", "1 kg pack"],
   box: ["50 tablets", "100 tablets", "500 tablets", "Other"],
 };
 
@@ -91,6 +207,21 @@ function stockStatus(remainingStock: number, threshold: number): StockStatus {
 
 export const feedStockStatus = (remainingStock: number): StockStatus => stockStatus(remainingStock, FEED_LOW_STOCK_THRESHOLD);
 export const vitaminStockStatus = (remainingStock: number): StockStatus => stockStatus(remainingStock, VITAMIN_LOW_STOCK_THRESHOLD);
+
+/** Same 30-day window expiringVitamins() uses for the "Expiring Vitamins" tile. */
+export const EXPIRY_WARNING_DAYS = 30;
+export type ExpiryStatus = "normal" | "expiring" | "expired";
+
+/** null when the batch has no expiration date recorded. */
+export function vitaminExpiryStatus(expirationDate: string | null, today = new Date()): ExpiryStatus | null {
+  if (!expirationDate) return null;
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const expiry = new Date(`${expirationDate.slice(0, 10)}T00:00:00`);
+  const days = Math.round((expiry.getTime() - startOfToday.getTime()) / 86_400_000);
+  if (days < 0) return "expired";
+  if (days <= EXPIRY_WARNING_DAYS) return "expiring";
+  return "normal";
+}
 
 export interface FeedBatch {
   id: string;
@@ -192,8 +323,14 @@ export interface FeedDistributionRecord {
   housePen: string;
   /** Real reference into poultry_houses, added alongside the pre-existing housePen text (0032) — null for rows recorded before this existed, or if the referenced house was later deleted. */
   houseId: string | null;
+  /** Always in sacks (fractional allowed) — the amount stock moves by. Derived by the database from the entry below (migration 0052). */
   quantityUsed: number;
   unit: string;
+  /** What was actually typed, in the unit it was typed in — shown in history. */
+  enteredQuantity: number;
+  enteredUnit: FeedConsumptionUnit;
+  /** The batch's sack size (kg) when the entry was made; null if the batch had none. */
+  kgPerSack: number | null;
   /** No longer collected by the Record Feed Distribution modal (either role) — kept nullable for historical rows that have a real value. */
   numberOfChickens: number | null;
   distributionDate: string;
@@ -212,6 +349,10 @@ export interface FeedDistributionInput {
   feedId: string;
   housePen: string;
   houseId: string | null;
+  /** The typed amount, in enteredUnit. The database converts it to sacks (quantity_used). */
+  enteredQuantity: number;
+  enteredUnit: FeedConsumptionUnit;
+  /** Client-side sack equivalent (for compatibility) — the database recomputes it authoritatively. */
   quantityUsed: number;
   unit: string;
   distributionDate: string;
@@ -225,6 +366,8 @@ export interface VitaminAdministrationRecord {
   vitaminId: string;
   vitaminName: string;
   housePen: string;
+  /** null on rows recorded before migration 0045 whose house name didn't match a registered house. */
+  houseId: string | null;
   dosage: string | null;
   quantityUsed: number;
   unit: string;
@@ -238,12 +381,16 @@ export interface VitaminAdministrationRecord {
   reviewedAt: string | null;
   remarks: string | null;
   createdAt: string;
+  /** Batch stock immediately before/after this usage was approved — captured by the database at approval time (migration 0042), null until approved. */
+  stockBefore: number | null;
+  stockAfter: number | null;
 }
 
 export interface VitaminAdministrationInput {
   farmId: string;
   vitaminId: string;
   housePen: string;
+  houseId: string | null;
   dosage: string | null;
   quantityUsed: number;
   unit: string;

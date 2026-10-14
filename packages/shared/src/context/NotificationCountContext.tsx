@@ -1,7 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { getUnreadCount } from "../services/notificationService";
 import { supabase } from "../services/supabaseClient";
+import { useToast } from "../components/ui/ToastContext";
+import { resolveNotificationLink } from "../lib/notificationNavigation";
 import { useAuth } from "./AuthContext";
 
 const POLL_INTERVAL_MS = 60_000;
@@ -14,6 +17,8 @@ interface RawNotificationRow {
   id: string;
   title: string;
   message: string;
+  link?: string | null;
+  category?: string;
 }
 
 interface NotificationCountContextValue {
@@ -49,13 +54,33 @@ interface NotificationCountProviderProps {
 /** Scoped inside each portal's DashboardLayout so the Topbar badge and the Notifications pages it renders via Outlet share one live count. */
 export function NotificationCountProvider({ children, onNewNotifications }: NotificationCountProviderProps) {
   const { user } = useAuth();
+  // Keyed on the id, not the user object — a profile refresh hands back a new
+  // object for the same person, and must not tear down and reopen the channel.
+  const userId = user?.id ?? null;
+  const toast = useToast();
+  const onNewNotificationsRef = useRef(onNewNotifications);
+  onNewNotificationsRef.current = onNewNotifications;
+  const navigate = useNavigate();
+  const location = useLocation();
   const [count, setCount] = useState(0);
   const [lastInsertedAt, setLastInsertedAt] = useState(0);
   const notifiedIdsRef = useRef<string[]>([]);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Read inside the Realtime callback without re-subscribing on every
+  // navigation — the channel must stay one long-lived subscription.
+  const appPrefixRef = useRef<"/dashboard" | "/farm">("/farm");
+  appPrefixRef.current = location.pathname.startsWith("/dashboard") ? "/dashboard" : "/farm";
+  const showAlertRef = useRef<(row: RawNotificationRow) => void>(() => {});
+  showAlertRef.current = (row) => {
+    const resolution = resolveNotificationLink(row.link ?? null, appPrefixRef.current);
+    toast.info(
+      `${row.title} — ${row.message}`,
+      resolution.kind === "navigate" ? { label: "View", onClick: () => navigate(resolution.path) } : undefined
+    );
+  };
 
   const refresh = useCallback(async () => {
-    if (!user) {
+    if (!userId) {
       setCount(0);
       return;
     }
@@ -64,7 +89,7 @@ export function NotificationCountProvider({ children, onNewNotifications }: Noti
     } catch (err) {
       console.error("[NotificationCountProvider] failed to load unread count:", err);
     }
-  }, [user]);
+  }, [userId]);
 
   const debouncedRefresh = useCallback(() => {
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
@@ -83,50 +108,67 @@ export function NotificationCountProvider({ children, onNewNotifications }: Noti
   // above — that's Realtime-driven only, deliberately, so it's never fired
   // from a bare count delta with no real row to describe).
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
     const interval = setInterval(() => void refresh(), POLL_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [user, refresh]);
+  }, [userId, refresh]);
 
   // Real-time delivery: Postgres Changes over the same Supabase client
   // already used everywhere else — authorized per-subscriber by the existing
   // RLS SELECT policy (recipient_id = auth.uid()), no new policy needed.
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     let channel: RealtimeChannel | null = supabase
-      .channel(`notifications:${user.id}`)
+      .channel(`notifications:${userId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "notifications", filter: `recipient_id=eq.${user.id}` },
+        { event: "*", schema: "public", table: "notifications", filter: `recipient_id=eq.${userId}` },
         (payload: RealtimePostgresChangesPayload<RawNotificationRow>) => {
           if (payload.eventType === "INSERT" && "id" in payload.new) {
             const row = payload.new;
             if (!notifiedIdsRef.current.includes(row.id)) {
               notifiedIdsRef.current = [...notifiedIdsRef.current, row.id].slice(-NOTIFIED_ID_CAP);
-              onNewNotifications?.(row);
+              if (import.meta.env.DEV) {
+                console.info("[NotificationCountProvider] realtime notification", { id: row.id, category: row.category });
+              }
+              onNewNotificationsRef.current?.(row);
+              showAlertRef.current(row);
               setLastInsertedAt(Date.now());
             }
           }
           debouncedRefresh();
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (import.meta.env.DEV) console.info("[NotificationCountProvider] realtime status:", status);
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          // Realtime unavailable — the badge still self-heals from the REST
+          // count (here, the 60s poll, and on reconnect/refocus below).
+          console.warn("[NotificationCountProvider] realtime subscription failed:", status, err?.message ?? "");
+          void refresh();
+        }
+      });
 
     // A network drop (common on mobile data) can leave the socket closed —
     // a plain REST refresh always works regardless of the channel's state,
     // and self-heals the badge even if the channel takes a moment to resume.
     const handleOnline = () => void refresh();
+    const handleVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
     window.addEventListener("online", handleOnline);
+    document.addEventListener("visibilitychange", handleVisible);
 
     return () => {
       window.removeEventListener("online", handleOnline);
+      document.removeEventListener("visibilitychange", handleVisible);
       if (channel) {
         void supabase.removeChannel(channel);
         channel = null;
       }
     };
-  }, [user, onNewNotifications, debouncedRefresh, refresh]);
+  }, [userId, debouncedRefresh, refresh]);
 
   return (
     <NotificationCountContext.Provider value={{ count, refresh, lastInsertedAt }}>{children}</NotificationCountContext.Provider>

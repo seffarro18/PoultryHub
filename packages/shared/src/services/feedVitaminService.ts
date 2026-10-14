@@ -1,6 +1,7 @@
 import { supabase } from "./supabaseClient";
 import {
   feedStockStatus,
+  formatUnitLabel,
   vitaminStockStatus,
   type ApprovalStatus,
   type FeedBatch,
@@ -11,6 +12,11 @@ import {
   type VitaminAdministrationRecord,
   type VitaminBatch,
   type VitaminBatchInput,
+  EXPIRY_WARNING_DAYS,
+  feedUsageKg,
+  fmtSacks,
+  localIsoDate,
+  type FeedConsumptionUnit,
 } from "../types/feedVitamin";
 
 // ── Feed batches ────────────────────────────────────────────────────────
@@ -217,6 +223,9 @@ interface FeedDistributionRow {
   house_id: string | null;
   quantity_used: number;
   unit: string;
+  entered_quantity: number | null;
+  entered_unit: "sack" | "kg" | null;
+  kg_per_sack: number | null;
   number_of_chickens: number | null;
   distribution_date: string;
   recorded_by: string | null;
@@ -232,7 +241,7 @@ interface FeedDistributionRow {
 }
 
 const FEED_DISTRIBUTION_SELECT = `
-  id, farm_id, feed_id, house_pen, house_id, quantity_used, unit, number_of_chickens, distribution_date,
+  id, farm_id, feed_id, house_pen, house_id, quantity_used, unit, entered_quantity, entered_unit, kg_per_sack, number_of_chickens, distribution_date,
   recorded_by, status, review_notes, reviewed_at, remarks, created_at,
   farms ( name ),
   feeds ( feed_name ),
@@ -249,8 +258,11 @@ function mapFeedDistributionRow(row: FeedDistributionRow): FeedDistributionRecor
     feedName: row.feeds?.feed_name ?? "Unknown feed",
     housePen: row.house_pen,
     houseId: row.house_id,
-    quantityUsed: row.quantity_used,
+    quantityUsed: Number(row.quantity_used),
     unit: row.unit,
+    enteredQuantity: Number(row.entered_quantity ?? row.quantity_used),
+    enteredUnit: row.entered_unit ?? "sack",
+    kgPerSack: row.kg_per_sack === null ? null : Number(row.kg_per_sack),
     numberOfChickens: row.number_of_chickens,
     distributionDate: row.distribution_date,
     recordedById: row.recorded_by,
@@ -279,6 +291,8 @@ function feedDistributionRow(input: FeedDistributionInput) {
     feed_id: input.feedId,
     house_pen: input.housePen,
     house_id: input.houseId,
+    entered_quantity: input.enteredQuantity,
+    entered_unit: input.enteredUnit,
     quantity_used: input.quantityUsed,
     unit: input.unit,
     distribution_date: input.distributionDate,
@@ -324,22 +338,36 @@ export async function resubmitFeedDistributionRecord(id: string, input: FeedDist
   if (error) throw error;
 }
 
-export async function approveFeedDistributionRecord(id: string): Promise<void> {
+/**
+ * Approve/reject a pending usage record. Matching on status = 'pending'
+ * means a second click (or a second Farm Admin) updates zero rows and gets a
+ * clear "already processed" error instead of silently re-saving. The
+ * database enforces the same rule (migration 0042) and does the actual stock
+ * deduction in its trigger — the client never adjusts stock itself.
+ */
+async function reviewUsageRecord(
+  table: "feed_distribution" | "vitamin_administration",
+  id: string,
+  status: "approved" | "rejected",
+  comment: string | null
+): Promise<void> {
   const { data: auth } = await supabase.auth.getUser();
-  const { error } = await supabase
-    .from("feed_distribution")
-    .update({ status: "approved", review_notes: null, reviewed_by: auth.user?.id ?? null, reviewed_at: new Date().toISOString() })
-    .eq("id", id);
+  const { data, error } = await supabase
+    .from(table)
+    .update({ status, review_notes: comment, reviewed_by: auth.user?.id ?? null, reviewed_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("status", "pending")
+    .select("id");
   if (error) throw error;
+  if (!data || data.length === 0) throw new Error("This request has already been processed.");
+}
+
+export async function approveFeedDistributionRecord(id: string): Promise<void> {
+  await reviewUsageRecord("feed_distribution", id, "approved", null);
 }
 
 export async function rejectFeedDistributionRecord(id: string, comment: string): Promise<void> {
-  const { data: auth } = await supabase.auth.getUser();
-  const { error } = await supabase
-    .from("feed_distribution")
-    .update({ status: "rejected", review_notes: comment, reviewed_by: auth.user?.id ?? null, reviewed_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error) throw error;
+  await reviewUsageRecord("feed_distribution", id, "rejected", comment);
 }
 
 // ── Vitamin administration (Staff -> Farm Admin approval workflow) ─────
@@ -349,6 +377,7 @@ interface VitaminAdministrationRow {
   farm_id: string;
   vitamin_id: string;
   house_pen: string;
+  house_id: string | null;
   dosage: string | null;
   quantity_used: number;
   unit: string;
@@ -360,6 +389,8 @@ interface VitaminAdministrationRow {
   reviewed_at: string | null;
   remarks: string | null;
   created_at: string;
+  stock_before: number | null;
+  stock_after: number | null;
   farms: { name: string } | null;
   vitamins: { vitamin_name: string } | null;
   recorded_by_profile: { name: string } | null;
@@ -367,8 +398,8 @@ interface VitaminAdministrationRow {
 }
 
 const VITAMIN_ADMINISTRATION_SELECT = `
-  id, farm_id, vitamin_id, house_pen, dosage, quantity_used, unit, administration_date, purpose,
-  recorded_by, status, review_notes, reviewed_at, remarks, created_at,
+  id, farm_id, vitamin_id, house_pen, house_id, dosage, quantity_used, unit, administration_date, purpose,
+  recorded_by, status, review_notes, reviewed_at, remarks, created_at, stock_before, stock_after,
   farms ( name ),
   vitamins ( vitamin_name ),
   recorded_by_profile:profiles!recorded_by ( name ),
@@ -383,6 +414,7 @@ function mapVitaminAdministrationRow(row: VitaminAdministrationRow): VitaminAdmi
     vitaminId: row.vitamin_id,
     vitaminName: row.vitamins?.vitamin_name ?? "Unknown vitamin",
     housePen: row.house_pen,
+    houseId: row.house_id,
     dosage: row.dosage,
     quantityUsed: row.quantity_used,
     unit: row.unit,
@@ -396,6 +428,8 @@ function mapVitaminAdministrationRow(row: VitaminAdministrationRow): VitaminAdmi
     reviewedAt: row.reviewed_at,
     remarks: row.remarks,
     createdAt: row.created_at,
+    stockBefore: row.stock_before === null ? null : Number(row.stock_before),
+    stockAfter: row.stock_after === null ? null : Number(row.stock_after),
   };
 }
 
@@ -413,6 +447,7 @@ function vitaminAdministrationRow(input: VitaminAdministrationInput) {
     farm_id: input.farmId,
     vitamin_id: input.vitaminId,
     house_pen: input.housePen,
+    house_id: input.houseId,
     dosage: input.dosage,
     quantity_used: input.quantityUsed,
     unit: input.unit,
@@ -449,21 +484,23 @@ export async function resubmitVitaminAdministrationRecord(id: string, input: Vit
 }
 
 export async function approveVitaminAdministrationRecord(id: string): Promise<void> {
-  const { data: auth } = await supabase.auth.getUser();
-  const { error } = await supabase
-    .from("vitamin_administration")
-    .update({ status: "approved", review_notes: null, reviewed_by: auth.user?.id ?? null, reviewed_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error) throw error;
+  await reviewUsageRecord("vitamin_administration", id, "approved", null);
 }
 
 export async function rejectVitaminAdministrationRecord(id: string, comment: string): Promise<void> {
-  const { data: auth } = await supabase.auth.getUser();
-  const { error } = await supabase
-    .from("vitamin_administration")
-    .update({ status: "rejected", review_notes: comment, reviewed_by: auth.user?.id ?? null, reviewed_at: new Date().toISOString() })
-    .eq("id", id);
+  await reviewUsageRecord("vitamin_administration", id, "rejected", comment);
+}
+
+/**
+ * Deleting an approved record returns its quantity to the batch — done by the
+ * restore_vitamin_stock_on_delete trigger (migration 0043), not here. Zero
+ * rows deleted means RLS refused it (or 0043 isn't applied yet), so that's
+ * surfaced instead of reporting a delete that never happened.
+ */
+export async function deleteVitaminAdministrationRecord(id: string): Promise<void> {
+  const { data, error } = await supabase.from("vitamin_administration").delete().eq("id", id).select("id");
   if (error) throw error;
+  if (!data || data.length === 0) throw new Error("You don't have permission to delete this record.");
 }
 
 // ── Pure aggregation / analytics helpers ────────────────────────────────
@@ -508,10 +545,11 @@ function bucketKey(date: Date, unit: PeriodUnit): string {
   if (unit === "month") return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
   if (unit === "week") {
     const weekday = (date.getDay() + 6) % 7;
-    const monday = new Date(date.getTime() - weekday * 24 * 60 * 60 * 1000);
-    return monday.toISOString().slice(0, 10);
+    const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate() - weekday);
+    return localIsoDate(monday);
   }
-  return date.toISOString().slice(0, 10);
+  // Local date, not toISOString() — that's UTC and shifted every bucket back a day in UTC+8.
+  return localIsoDate(date);
 }
 
 function formatPeriodLabel(key: string, unit: PeriodUnit): string {
@@ -528,14 +566,17 @@ function aggregateUsageByPeriod<T extends { status: ApprovalStatus; quantityUsed
   records: T[],
   dateOf: (r: T) => string,
   unit: PeriodUnit,
-  recentCount: number
+  recentCount: number,
+  amountOf: (r: T) => number | null = (r) => r.quantityUsed
 ): PeriodUsage[] {
   const buckets = new Map<string, PeriodUsage>();
   for (const r of records) {
     if (r.status !== "approved") continue;
+    const amount = amountOf(r);
+    if (amount === null) continue;
     const key = bucketKey(new Date(`${dateOf(r)}T00:00:00`), unit);
     const bucket = buckets.get(key) ?? { label: formatPeriodLabel(key, unit), value: 0 };
-    bucket.value += r.quantityUsed;
+    bucket.value += amount;
     buckets.set(key, bucket);
   }
   return [...buckets.entries()]
@@ -544,16 +585,18 @@ function aggregateUsageByPeriod<T extends { status: ApprovalStatus; quantityUsed
     .map(([, bucket]) => bucket);
 }
 
-export const aggregateFeedByDay = (records: FeedDistributionRecord[]) =>
-  aggregateUsageByPeriod(records, (r) => r.distributionDate, "day", 14);
-export const aggregateFeedByWeek = (records: FeedDistributionRecord[]) =>
-  aggregateUsageByPeriod(records, (r) => r.distributionDate, "week", 8);
-export const aggregateFeedByMonth = (records: FeedDistributionRecord[]) =>
-  aggregateUsageByPeriod(records, (r) => r.distributionDate, "month", 12);
+/** Feed amount in the display unit: sacks, or each record's own weight in kg (a record with no sack size can't be weighed, so a kg chart leaves it out rather than guessing). */
+const feedAmount = (mode: FeedConsumptionUnit) => (r: FeedDistributionRecord) => (mode === "kg" ? feedUsageKg(r) : r.quantityUsed);
+export const aggregateFeedByDay = (records: FeedDistributionRecord[], mode: FeedConsumptionUnit = "sack") =>
+  aggregateUsageByPeriod(records, (r) => r.distributionDate, "day", 14, feedAmount(mode));
+export const aggregateFeedByWeek = (records: FeedDistributionRecord[], mode: FeedConsumptionUnit = "sack") =>
+  aggregateUsageByPeriod(records, (r) => r.distributionDate, "week", 8, feedAmount(mode));
+export const aggregateFeedByMonth = (records: FeedDistributionRecord[], mode: FeedConsumptionUnit = "sack") =>
+  aggregateUsageByPeriod(records, (r) => r.distributionDate, "month", 12, feedAmount(mode));
 export const aggregateVitaminByMonth = (records: VitaminAdministrationRecord[]) =>
   aggregateUsageByPeriod(records, (r) => r.administrationDate, "month", 12);
 
-const EXPIRY_THRESHOLD_DAYS = 30;
+const EXPIRY_THRESHOLD_DAYS = EXPIRY_WARNING_DAYS;
 
 export interface ExpiringVitamin {
   vitamin: VitaminBatch;
@@ -600,5 +643,7 @@ export function summarizeByUnit(items: { unit: string; remainingStock: number }[
 export function formatUnitSummary(items: { unit: string; remainingStock: number }[]): string {
   const summary = summarizeByUnit(items);
   if (summary.length === 0) return "0";
-  return summary.map((s) => `${s.total.toLocaleString()} ${s.unit}`).join(" + ");
+  return summary
+    .map((s) => (s.unit.trim().toLowerCase() === "sack" ? fmtSacks(s.total) : `${s.total.toLocaleString()} ${formatUnitLabel(s.unit, s.total)}`))
+    .join(" + ");
 }

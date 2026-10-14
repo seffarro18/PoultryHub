@@ -1,14 +1,17 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
-import ToastViewport, { type ToastItem, type ToastType } from "./Toast";
+import ToastViewport, { type ToastAction, type ToastItem, type ToastType } from "./Toast";
 
 interface ToastContextValue {
   success: (message: string) => void;
   error: (message: string) => void;
+  /** Incoming-alert style toast (e.g. a newly delivered notification), optionally with a "View" action. */
+  info: (message: string, action?: ToastAction) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 const AUTO_DISMISS_MS = 4000;
+const INFO_AUTO_DISMISS_MS = 7000;
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -19,10 +22,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const push = useCallback(
-    (type: ToastType, message: string) => {
+    (type: ToastType, message: string, action?: ToastAction) => {
       const id = nextId.current++;
-      setToasts((prev) => [...prev, { id, type, message }]);
-      setTimeout(() => dismiss(id), AUTO_DISMISS_MS);
+      setToasts((prev) => [...prev, { id, type, message, action }]);
+      setTimeout(() => dismiss(id), type === "info" ? INFO_AUTO_DISMISS_MS : AUTO_DISMISS_MS);
     },
     [dismiss]
   );
@@ -30,6 +33,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const value: ToastContextValue = {
     success: (message) => push("success", message),
     error: (message) => push("error", message),
+    info: (message, action) => push("info", message, action),
   };
 
   return (

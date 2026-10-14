@@ -1,6 +1,6 @@
 import { Printer, X } from "lucide-react";
 import type { Purchase } from "../../types/purchase";
-import { formatFeedPackaging } from "../../types/feedVitamin";
+import { formatFeedPackaging, formatUnitLabel } from "../../types/feedVitamin";
 
 interface PurchaseReceiptModalProps {
   purchase: Purchase;
@@ -81,7 +81,7 @@ export default function PurchaseReceiptModal({ purchase, onClose }: PurchaseRece
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[var(--color-muted)]">Quantity</span>
-              <span className="text-[var(--color-foreground)]">{item.quantity.toLocaleString()} {item.unit}</span>
+              <span className="text-[var(--color-foreground)]">{item.quantity.toLocaleString()} {formatUnitLabel(item.unit, item.quantity)}</span>
             </div>
             {item.packageSize && (
               <div className="flex items-center justify-between">
@@ -93,7 +93,7 @@ export default function PurchaseReceiptModal({ purchase, onClose }: PurchaseRece
             )}
             <div className="flex items-center justify-between">
               <span className="text-[var(--color-muted)]">Price</span>
-              <span className="text-[var(--color-foreground)]">{currency(item.unitPrice)} / {item.unit}</span>
+              <span className="text-[var(--color-foreground)]">{currency(item.unitPrice)} / {formatUnitLabel(item.unit)}</span>
             </div>
           </div>
         )}

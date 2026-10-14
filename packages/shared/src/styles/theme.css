@@ -197,6 +197,39 @@ body {
   body {
     background: #ffffff !important;
   }
+
+  /* Reports: landscape pages so wide tables fit, every row printed (off-page
+     rows are only hidden on screen), headers repeated on each page, rows not
+     split across pages, and the page number in the footer where supported. */
+  .report-root {
+    page: report;
+    font-size: 10px;
+  }
+  .report-root table {
+    font-size: 9px;
+  }
+  .report-root thead {
+    display: table-header-group;
+  }
+  .report-root tr {
+    break-inside: avoid;
+  }
+  .report-root td {
+    max-width: none !important;
+  }
+  .report-table {
+    break-before: auto;
+    margin-top: 8px;
+  }
+}
+
+@page report {
+  size: A4 landscape;
+  margin: 10mm;
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-size: 9px;
+  }
 }
 
 /* Applies to every <input type="number"> in both apps, present and future —

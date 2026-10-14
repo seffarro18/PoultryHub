@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import { summarizeSaleItems, totalEggsForSale } from "../../services/salesExpensesService";
 import type { SaleRecord } from "../../types/salesExpenses";
+import { formatEggUnitQuantity } from "../../types/eggPricing";
 
 interface SaleDetailsModalProps {
   sale: SaleRecord;
@@ -59,7 +60,10 @@ export default function SaleDetailsModal({ sale, onClose }: SaleDetailsModalProp
                       <p className="text-sm font-semibold text-[var(--color-foreground)]">{currency(item.lineTotal)}</p>
                     </div>
                     <p className="mt-0.5 text-xs text-[var(--color-muted)]">
-                      {item.quantity} {item.unitType === "full_tray" ? "Full Tray" : "Half Tray"} · {item.eggsCount.toLocaleString()} eggs
+                      {formatEggUnitQuantity(item.quantity, item.unitType)} · {item.eggsCount.toLocaleString()} eggs
+                    </p>
+                    <p className="mt-0.5 text-xs text-[var(--color-muted)]">
+                      Price at sale: {currency(item.unitPrice)} per {item.unitType === "piece" ? "piece" : item.unitType === "half_tray" ? "half tray" : "full tray"}
                     </p>
                   </div>
                 ))}

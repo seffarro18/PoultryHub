@@ -73,7 +73,7 @@ function forFarm<T extends { farmId: string }>(records: T[], farmId: string): T[
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Approved mortality, trailing 7 days — same cutoff/status rule as farmDashboardService.getFarmOverview's mortalityCount7d (mobile app's Farm Admin dashboard). */
+/** Approved mortality, trailing 7 days — same cutoff/status rule the mobile app's Farm Admin dashboard used before its own "Mortality (7d)" KPI card was removed; this Super Admin "All Farms" oversight tile is a separate, still-needed feature. */
 function mortality7d(records: MortalityRecord[], today = new Date()): number {
   const cutoff = new Date(today.getTime() - SEVEN_DAYS_MS);
   return records
@@ -281,12 +281,11 @@ export function getFarmRecentMortality(data: AllFarmsBulkData, farmId: string, l
 export interface FarmPoultryStockBreakdown {
   totalChickens: number;
   layers: number;
-  chicks: number;
 }
 
 export function getFarmPoultryStock(data: AllFarmsBulkData, farmId: string): FarmPoultryStockBreakdown {
   const { byType, total } = totalStock(forFarm(data.events, farmId), forFarm(data.mortalityRecords, farmId));
-  return { totalChickens: total, layers: byType.Layer ?? 0, chicks: byType.Chick ?? 0 };
+  return { totalChickens: total, layers: byType.Layer ?? 0 };
 }
 
 export interface FarmMortalityCounts {

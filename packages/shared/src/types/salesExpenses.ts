@@ -3,8 +3,8 @@ import type { EggSize } from "./eggPricing";
 export const SALE_CATEGORIES = ["Eggs", "Live Birds", "Manure", "Other"] as const;
 export type SaleCategory = (typeof SALE_CATEGORIES)[number];
 
-/** Confirmed conversion factors for an Eggs sale's Unit dropdown — 1 full tray = 30 eggs, half tray = 15. Defined once here and reused everywhere a tray-based sale quantity needs converting to raw eggs (stock math, remaining-stock validation). */
-export const EGG_TRAY_SIZES = { "Full Tray": 30, "Half Tray": 15 } as const;
+/** Conversion factors for an Eggs sale's Unit — 1 full tray = 30 eggs, half tray = 15, piece = 1 (same table as EGGS_PER_UNIT in types/eggPricing). Legacy pre-multi-item sales only ever used the two tray units. */
+export const EGG_TRAY_SIZES = { "Full Tray": 30, "Half Tray": 15, Piece: 1 } as const;
 export type EggTrayUnit = keyof typeof EGG_TRAY_SIZES;
 
 export const PAYMENT_STATUSES = ["paid", "pending", "partial"] as const;
@@ -26,7 +26,7 @@ export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 export interface SaleItem {
   id: string;
   eggSize: EggSize;
-  unitType: "full_tray" | "half_tray";
+  unitType: "full_tray" | "half_tray" | "piece";
   quantity: number;
   eggsCount: number;
   unitPrice: number;

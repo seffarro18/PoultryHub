@@ -66,6 +66,13 @@ function mapPurchaseRow(row: PurchaseRow): Purchase {
   };
 }
 
+/** Every purchase receipt the caller can see (Farm Admin/Manager: own farm; Super Admin: all) — Reports' expense references and feed/vitamin receipts. */
+export async function listPurchases(): Promise<Purchase[]> {
+  const { data, error } = await supabase.from("purchase_transactions").select(PURCHASE_SELECT).order("purchase_date", { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as unknown as PurchaseRow[]).map(mapPurchaseRow);
+}
+
 /** For the receipt view/print — RLS-scoped to the caller's own farm (or Super Admin, any farm). */
 export async function getPurchase(id: string): Promise<Purchase> {
   const { data, error } = await supabase.from("purchase_transactions").select(PURCHASE_SELECT).eq("id", id).single();

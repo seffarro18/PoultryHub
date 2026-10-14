@@ -1,5 +1,4 @@
 export type TaskStatus = "pending" | "in_progress" | "completed" | "blocked";
-export type TaskPriority = "low" | "medium" | "high";
 export type TaskCommentType = "progress" | "problem" | "completion";
 export type TaskProblemCategory = "missing_supplies" | "equipment_problem" | "schedule_conflict" | "cannot_complete" | "other";
 
@@ -13,7 +12,9 @@ export interface Task {
   createdById: string | null;
   createdByName: string | null;
   status: TaskStatus;
-  priority: TaskPriority;
+  /** The house/pen this task is for (poultry_houses, migration 0047) — null for a farm-wide task or a legacy free-text one. */
+  houseId: string | null;
+  /** Display name: the house's current name, or a legacy task's original free text. */
   housePen: string | null;
   scheduledStart: string | null;
   scheduledEnd: string | null;
@@ -27,17 +28,11 @@ export interface TaskInput {
   title: string;
   description: string | null;
   assignedToId: string;
-  priority: TaskPriority;
-  housePen: string | null;
+  /** null = farm-wide / not tied to a house. The database fills house_pen from this and checks it belongs to the farm. */
+  houseId: string | null;
   scheduledStart: string | null;
   scheduledEnd: string | null;
 }
-
-export const TASK_PRIORITY_LABEL: Record<TaskPriority, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-};
 
 export interface TaskComment {
   id: string;

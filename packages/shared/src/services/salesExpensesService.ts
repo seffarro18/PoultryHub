@@ -1,13 +1,13 @@
 import { supabase } from "./supabaseClient";
 import { EGG_TRAY_SIZES, type EggSaleInput, type ExpenseInput, type ExpenseRecord, type SaleItem, type SaleRecord } from "../types/salesExpenses";
-import type { EggSize } from "../types/eggPricing";
+import { EGG_UNIT_CODE, formatEggUnitQuantity, type EggSize } from "../types/eggPricing";
 
 // ── Sales ────────────────────────────────────────────────────────────────
 
 interface SaleItemRow {
   id: string;
   egg_size: EggSize;
-  unit_type: "full_tray" | "half_tray";
+  unit_type: "full_tray" | "half_tray" | "piece";
   quantity: number;
   eggs_count: number;
   unit_price: number;
@@ -48,10 +48,10 @@ function mapSaleItemRow(row: SaleItemRow): SaleItem {
     id: row.id,
     eggSize: row.egg_size,
     unitType: row.unit_type,
-    quantity: row.quantity,
-    eggsCount: row.eggs_count,
-    unitPrice: row.unit_price,
-    lineTotal: row.line_total,
+    quantity: Number(row.quantity),
+    eggsCount: Number(row.eggs_count),
+    unitPrice: Number(row.unit_price),
+    lineTotal: Number(row.line_total),
   };
 }
 
@@ -84,14 +84,12 @@ export async function listSales(): Promise<SaleRecord[]> {
   return ((data ?? []) as unknown as SaleRow[]).map(mapSaleRow);
 }
 
-const UNIT_TYPE_LABEL: Record<"full_tray" | "half_tray", string> = { full_tray: "Full Tray", half_tray: "Half Tray" };
-
 /** "1 Half Tray Medium, 1 Full Tray Jumbo" — used by Sales History rows, the details modal, and CSV exports so this formatting lives in exactly one place. Falls back to the legacy flat shape for a pre-multi-item sale. */
 export function summarizeSaleItems(sale: SaleRecord): string {
   if (sale.items.length === 0) {
     return sale.quantity !== null && sale.unit !== null ? `${sale.quantity.toLocaleString()} ${sale.unit}` : "—";
   }
-  return sale.items.map((item) => `${item.quantity} ${UNIT_TYPE_LABEL[item.unitType]} ${item.eggSize}`).join(", ");
+  return sale.items.map((item) => `${formatEggUnitQuantity(item.quantity, item.unitType)} ${item.eggSize}`).join(", ");
 }
 
 /** Total raw eggs across every line of a sale — used by the details modal and CSV exports. Falls back to the legacy flat quantity (tray-converted) for a pre-multi-item sale. */
@@ -119,7 +117,7 @@ export async function saveEggSale(input: EggSaleInput, saleId?: string): Promise
     p_remarks: input.remarks,
     p_items: input.items.map((item) => ({
       egg_size: item.eggSize,
-      unit_type: item.unitType === "Half Tray" ? "half_tray" : "full_tray",
+      unit_type: EGG_UNIT_CODE[item.unitType],
       quantity: item.quantity,
     })),
   });

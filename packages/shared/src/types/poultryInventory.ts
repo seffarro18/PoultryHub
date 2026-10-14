@@ -1,7 +1,14 @@
-export type BirdType = "Layer" | "Chick" | "Grower" | "Breeder";
+// "Chick" removed — PoultryHub is a layer-chicken-only system, and chick
+// (pre-layer) inventory is no longer a tracked concept anywhere in the app.
+// Existing historical bird_type='Chick' rows, if any, are left untouched in
+// the database; this union just stops the application from creating,
+// displaying, or offering new ones.
+import type { ProductionStatus } from "./eggProduction";
+
+export type BirdType = "Layer" | "Grower" | "Breeder";
 export type PoultryEventType = "arrival" | "transfer" | "sale" | "culling" | "mortality" | "count_update";
 
-export const BIRD_TYPES: BirdType[] = ["Layer", "Chick", "Grower", "Breeder"];
+export const BIRD_TYPES: BirdType[] = ["Layer", "Grower", "Breeder"];
 
 export interface PoultryEvent {
   id: string;
@@ -26,7 +33,13 @@ export interface PoultryEvent {
   /** Layer age in weeks (1-100), selected from a fixed dropdown — never free text. */
   ageWeeks: number | null;
   source: string | null;
+  /** The BIRD status (Active / Sold / Culled / Transferred) — derived from eventType. Not the review state; see reviewStatus. */
   status: string | null;
+  /** Approval lifecycle. Only "approved" events count toward official stock — Staff submissions start "pending" (enforced by a database trigger, not the client). */
+  reviewStatus: ProductionStatus;
+  reviewNotes: string | null;
+  reviewedAt: string | null;
+  reviewedByName: string | null;
 }
 
 export interface PoultryEventInput {

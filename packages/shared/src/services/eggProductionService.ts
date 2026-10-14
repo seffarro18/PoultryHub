@@ -19,6 +19,7 @@ interface EggProductionRow {
   large_eggs: number;
   x_large_eggs: number;
   jumbo_eggs: number;
+  super_jumbo_eggs: number;
   damaged_cracked_eggs: number;
   eggs_sold: number;
   recorded_by: string | null;
@@ -49,6 +50,7 @@ function mapRow(row: EggProductionRow): EggProductionRecord {
     largeEggs: row.large_eggs,
     xLargeEggs: row.x_large_eggs,
     jumboEggs: row.jumbo_eggs,
+    superJumboEggs: row.super_jumbo_eggs ?? 0,
     damagedCrackedEggs: row.damaged_cracked_eggs,
     eggsSold: row.eggs_sold,
     recordedById: row.recorded_by,
@@ -77,7 +79,7 @@ export async function createFarm(name: string): Promise<Farm> {
 
 const RECORD_SELECT = `
   id, farm_id, production_date, house_pen, poultry_house_id, number_of_trays, eggs_collected,
-  good_eggs, peewee_eggs, small_eggs, medium_eggs, large_eggs, x_large_eggs, jumbo_eggs, damaged_cracked_eggs,
+  good_eggs, peewee_eggs, small_eggs, medium_eggs, large_eggs, x_large_eggs, jumbo_eggs, super_jumbo_eggs, damaged_cracked_eggs,
   eggs_sold, recorded_by, notes,
   status, review_notes, reviewed_at, created_at,
   farms ( name ),
@@ -109,6 +111,7 @@ function toRow(input: EggProductionInput) {
     large_eggs: input.largeEggs,
     x_large_eggs: input.xLargeEggs,
     jumbo_eggs: input.jumboEggs,
+    super_jumbo_eggs: input.superJumboEggs,
     damaged_cracked_eggs: input.damagedCrackedEggs,
     eggs_sold: input.eggsSold,
     notes: input.notes,

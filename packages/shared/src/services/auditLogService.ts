@@ -64,6 +64,26 @@ export async function listAuditLogs(): Promise<AuditLogEntry[]> {
   return ((data ?? []) as unknown as AuditLogRow[]).map(mapAuditLogRow);
 }
 
+/**
+ * Reports' Activity/Audit report — filtered by date on the server (not the
+ * 1000-most-recent cut listAuditLogs() takes), so an older period isn't
+ * silently truncated. `truncated` is true when the cap was hit.
+ */
+export async function listAuditLogsInRange(fromIso: string, toIso: string, cap = 5000): Promise<{ entries: AuditLogEntry[]; truncated: boolean }> {
+  const fromTs = new Date(`${fromIso}T00:00:00`).toISOString();
+  const toTs = new Date(`${toIso}T23:59:59.999`).toISOString();
+  const { data, error } = await supabase
+    .from("audit_logs")
+    .select(AUDIT_LOG_SELECT)
+    .gte("created_at", fromTs)
+    .lte("created_at", toTs)
+    .order("created_at", { ascending: false })
+    .limit(cap + 1);
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as AuditLogRow[];
+  return { entries: rows.slice(0, cap).map(mapAuditLogRow), truncated: rows.length > cap };
+}
+
 /** Feed/Vitamin Inventory's History tab — reuses audit_logs (already capturing full before/after row snapshots on every feeds/vitamins insert/update, including archive/restore, via log_audit_event()) instead of a separate history table. RLS scopes this the same as listAuditLogs() — Farm Admin/Manager see only their farm's. */
 export async function listFeedVitaminHistory(): Promise<AuditLogEntry[]> {
   const { data, error } = await supabase

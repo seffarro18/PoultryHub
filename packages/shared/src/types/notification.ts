@@ -54,7 +54,10 @@ export type NotificationCategory =
   | "staff_assignment_changed"
   | "feed_distribution_reviewed"
   | "vitamin_administration_reviewed"
-  | "poultry_event_recorded";
+  | "poultry_event_recorded"
+  | "poultry_event_reviewed"
+  | "feed_distribution_submitted"
+  | "vitamin_administration_submitted";
 
 export type NotificationSeverity = "info" | "warning" | "critical";
 export type NotificationStatus = "unread" | "read" | "archived";
@@ -116,6 +119,9 @@ export const NOTIFICATION_CATEGORY_META: Record<NotificationCategory, { label: s
   feed_distribution_reviewed: { label: "Feed Distribution Reviewed", icon: Wheat },
   vitamin_administration_reviewed: { label: "Vitamin Administration Reviewed", icon: Syringe },
   poultry_event_recorded: { label: "Poultry Stock Event", icon: Bird },
+  poultry_event_reviewed: { label: "Poultry Record Reviewed", icon: Bird },
+  feed_distribution_submitted: { label: "Feed Distribution Request", icon: Wheat },
+  vitamin_administration_submitted: { label: "Vitamin Administration Request", icon: Syringe },
 };
 
 /** Categories shown in the Super Admin Notification Center's filter chips. */
@@ -147,6 +153,9 @@ export const FARM_ADMIN_CATEGORIES: NotificationCategory[] = [
   "health_case_submitted",
   "mortality_case_submitted",
   "egg_production_submitted",
+  "feed_distribution_submitted",
+  "vitamin_administration_submitted",
+  "poultry_event_recorded",
   "task_assigned",
   "task_comment_added",
   "task_problem_reported",

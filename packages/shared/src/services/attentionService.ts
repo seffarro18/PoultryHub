@@ -6,7 +6,7 @@ import { listFeedBatches, listVitaminBatches } from "./feedVitaminService";
 import { listFarmStaff } from "./staffService";
 import { listTaskComments, listTasks } from "./taskService";
 import { isTaskOverdue } from "../types/task";
-import { feedStockStatus, vitaminStockStatus } from "../types/feedVitamin";
+import { feedStockStatus, formatUnitLabel, vitaminStockStatus } from "../types/feedVitamin";
 import type { AttentionItem, AttentionModule, AttentionPriority } from "../types/attention";
 
 function plural(count: number, noun: string): string {
@@ -102,7 +102,7 @@ export async function listFarmAdminAttentionItems(includeStaff: boolean): Promis
         "vitamin_inventory",
         vitamin.id,
         `${vitamin.vitaminName} is ${critical ? "out of stock" : "low on stock"}`,
-        `${vitamin.remainingStock} ${vitamin.unit} remaining.`,
+        `${vitamin.remainingStock} ${formatUnitLabel(vitamin.unit, vitamin.remainingStock)} remaining.`,
         critical ? "high" : "medium",
         "View Inventory",
         now
@@ -338,7 +338,7 @@ export async function listSuperAdminAttentionItems(): Promise<AttentionItem[]> {
         "vitamin_inventory",
         vitamin.id,
         `${vitamin.vitaminName} Is Out of Stock`,
-        `No ${vitamin.unit} remaining at ${vitamin.farmName}.`,
+        `No ${formatUnitLabel(vitamin.unit, 0)} remaining at ${vitamin.farmName}.`,
         "high",
         "View Inventory",
         now,

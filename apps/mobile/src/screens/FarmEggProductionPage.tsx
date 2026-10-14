@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { Check, Download, Egg, Pencil, Search, ShieldAlert, X } from "lucide-react";
 import {
@@ -36,6 +37,7 @@ import {
 } from "@poultryhub/shared/types/eggProduction";
 import { useAuth } from "@poultryhub/shared/context/AuthContext";
 import { getErrorMessage } from "@poultryhub/shared/lib/errorMessage";
+import { useRecordHighlight } from "@poultryhub/shared/hooks/useRecordHighlight";
 
 type Tab = "pending" | "approved" | "rejected" | "all";
 const TABS: { key: Tab; label: string }[] = [
@@ -62,7 +64,10 @@ export default function FarmEggProductionPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const [tab, setTab] = useState<Tab>("pending");
+  const [searchParams] = useSearchParams();
+  // Arriving from a notification (?record=<id>): open "All" so the record is
+  // visible whatever its status is by now (already approved/rejected too).
+  const [tab, setTab] = useState<Tab>(() => (searchParams.has("record") ? "all" : "pending"));
   const [search, setSearch] = useState("");
   const [correctingRecord, setCorrectingRecord] = useState<EggProductionRecord | null>(null);
   const [rejectingRecord, setRejectingRecord] = useState<EggProductionRecord | null>(null);
@@ -92,7 +97,9 @@ export default function FarmEggProductionPage() {
       if (settings) setExpectedRate(settings.expectedProductionRate);
 
       const breedNames = new Set(
-        events.filter((e) => e.birdType === "Layer" && e.eventType === "arrival" && e.breed).map((e) => e.breed as string)
+        events
+          .filter((e) => e.reviewStatus === "approved" && e.birdType === "Layer" && e.eventType === "arrival" && e.breed)
+          .map((e) => e.breed as string)
       );
       setLayerBreeds(
         [...breedNames].map((name) => ({
@@ -135,6 +142,11 @@ export default function FarmEggProductionPage() {
   // handleApprove/handleConfirmReject already applied instantly, so the
   // debounced refetch just reconciles.
   useEggProductionRealtime(user?.farmId, () => void refresh(false));
+
+  const highlightedId = useRecordHighlight(
+    useMemo(() => records.map((r) => r.id), [records]),
+    !isLoading && !loadError
+  );
 
   const approvedRecords = useMemo(() => records.filter((r) => r.status === "approved"), [records]);
 
@@ -230,6 +242,7 @@ export default function FarmEggProductionPage() {
         Large: r.largeEggs,
         "X Large": r.xLargeEggs,
         Jumbo: r.jumboEggs,
+        "Super Jumbo": r.superJumboEggs,
         "Damaged/Cracked": r.damagedCrackedEggs,
         Sold: r.eggsSold,
         Remaining: remainingEggs(r),
@@ -324,7 +337,13 @@ export default function FarmEggProductionPage() {
           ) : (
             <StaggerGroup className="flex flex-col gap-3">
               {filtered.map((record) => (
-                <StaggerItem key={record.id} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+                <StaggerItem
+                  key={record.id}
+                  data-record-id={record.id}
+                  className={`rounded-2xl border bg-[var(--color-card)] p-4 transition-colors ${
+                    record.id === highlightedId ? "border-[var(--color-primary)] ring-2 ring-[var(--color-primary)]/30" : "border-[var(--color-border)]"
+                  }`}
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-[var(--color-foreground)]">
@@ -344,7 +363,7 @@ export default function FarmEggProductionPage() {
 
                   <p className="mt-2 text-xs text-[var(--color-muted)]">
                     Peewee {record.peeweeEggs} · Small {record.smallEggs} · Medium {record.mediumEggs} · Large {record.largeEggs} · X Large{" "}
-                    {record.xLargeEggs} · Jumbo {record.jumboEggs}
+                    {record.xLargeEggs} · Jumbo {record.jumboEggs} · Super Jumbo {record.superJumboEggs}
                   </p>
 
                   <p className="mt-2 text-xs text-[var(--color-muted)]">

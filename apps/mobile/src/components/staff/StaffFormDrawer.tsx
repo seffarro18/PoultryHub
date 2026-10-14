@@ -3,6 +3,7 @@ import { Loader2, X } from "lucide-react";
 import { createStaffAccount, updateStaffProfile, type StaffInput, type StaffMember } from "@poultryhub/shared/services/staffService";
 import type { PoultryHouse } from "@poultryhub/shared/types/poultryHouse";
 import PoultryHouseSelect from "../production/PoultryHouseSelect";
+import MobileSelect from "../ui/MobileSelect";
 
 const EMPLOYMENT_STATUS_OPTIONS = ["Full-Time", "Part-Time", "Contract", "Probationary"];
 
@@ -164,18 +165,13 @@ export default function StaffFormDrawer({ staff, farmId, onClose, onSaved }: Sta
                 <label htmlFor="staff-employment-status" className="text-sm font-medium text-[var(--color-foreground)]">
                   Employment Status
                 </label>
-                <select
+                <MobileSelect
                   id="staff-employment-status"
                   value={employmentStatus}
-                  onChange={(e) => setEmploymentStatus(e.target.value)}
-                  className="rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)]"
-                >
-                  {EMPLOYMENT_STATUS_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setEmploymentStatus}
+                  sheetTitle="Employment Status"
+                  options={EMPLOYMENT_STATUS_OPTIONS.map((option) => ({ value: option, label: option }))}
+                />
               </div>
             </div>
 

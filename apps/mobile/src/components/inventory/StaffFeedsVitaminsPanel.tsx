@@ -1,13 +1,26 @@
 import { useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Pencil, Plus, Syringe, Wheat } from "lucide-react";
+import { useRecordHighlight } from "@poultryhub/shared/hooks/useRecordHighlight";
+import { useFeedConsumptionUnit } from "@poultryhub/shared/hooks/useFeedConsumptionUnit";
 import FeedDistributionFormDrawer from "../feeds/FeedDistributionFormDrawer";
 import VitaminAdministrationFormDrawer from "../feeds/VitaminAdministrationFormDrawer";
 import ProductionStatusBadge from "@poultryhub/shared/components/production/ProductionStatusBadge";
 import StatTile from "@poultryhub/shared/components/production/StatTile";
-import type { FeedBatch, FeedDistributionRecord, VitaminAdministrationRecord, VitaminBatch } from "@poultryhub/shared/types/feedVitamin";
+import {
+  formatFeedStockTotal,
+  formatFeedUsage,
+  formatFeedUsageTotal,
+  localIsoDate,
+  formatUnitLabel,
+  type FeedBatch,
+  type FeedDistributionRecord,
+  type VitaminAdministrationRecord,
+  type VitaminBatch,
+} from "@poultryhub/shared/types/feedVitamin";
 
 type Tab = "feed" | "vitamins";
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const todayIso = () => localIsoDate();
 
 interface StaffFeedsVitaminsPanelProps {
   farmId: string;
@@ -31,18 +44,29 @@ export default function StaffFeedsVitaminsPanel({
   vitaminAdministration,
   refresh,
 }: StaffFeedsVitaminsPanelProps) {
-  const [tab, setTab] = useState<Tab>("feed");
+  const location = useLocation();
+  const [tab, setTab] = useState<Tab>(location.pathname.endsWith("/vitamins") ? "vitamins" : "feed");
   const [editingFeedRecord, setEditingFeedRecord] = useState<FeedDistributionRecord | null | "new">(null);
   const [editingVitaminRecord, setEditingVitaminRecord] = useState<VitaminAdministrationRecord | null | "new">(null);
 
   const today = todayIso();
   const myFeedRecords = useMemo(() => feedDistribution.filter((r) => r.recordedById === userId), [feedDistribution, userId]);
   const myVitaminRecords = useMemo(() => vitaminAdministration.filter((r) => r.recordedById === userId), [vitaminAdministration, userId]);
+  const highlightedId = useRecordHighlight(
+    useMemo(() => [...myFeedRecords, ...myVitaminRecords].map((r) => r.id), [myFeedRecords, myVitaminRecords]),
+    true
+  );
+  const rowClass = (id: string) =>
+    `border-b border-[var(--color-border)] transition-colors last:border-0 ${id === highlightedId ? "bg-[var(--color-primary)]/10" : ""}`;
   const availableFeedBatches = useMemo(() => feedBatches.filter((f) => f.remainingStock > 0), [feedBatches]);
   const availableVitaminBatches = useMemo(() => vitaminBatches.filter((v) => v.remainingStock > 0), [vitaminBatches]);
-  const feedToday = useMemo(
-    () => myFeedRecords.filter((r) => r.status === "approved" && r.distributionDate === today).reduce((s, r) => s + r.quantityUsed, 0),
-    [myFeedRecords, today]
+  // The Farm Admin's farm-wide unit (Feed Consumption Settings) — Staff read it, never set it.
+  const { unit: feedUnit, error: feedUnitError, reload: reloadFeedUnit } = useFeedConsumptionUnit(farmId);
+  // Farm-wide approved usage today — the same rule (and the same number) the
+  // Farm Admin's "Feed Used Today" shows; pending/rejected never count.
+  const feedTodayRecords = useMemo(
+    () => feedDistribution.filter((r) => r.status === "approved" && r.distributionDate === today),
+    [feedDistribution, today]
   );
   const vitaminToday = useMemo(
     () => myVitaminRecords.filter((r) => r.status === "approved" && r.administrationDate === today).reduce((s, r) => s + r.quantityUsed, 0),
@@ -82,9 +106,17 @@ export default function StaffFeedsVitaminsPanel({
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <StatTile icon={Wheat} label="Fed Today" value={feedToday} />
-            <StatTile icon={Wheat} label="Available Feed Batches" value={availableFeedBatches.length} />
+            <StatTile icon={Wheat} label="Fed Today" value={feedUnit ? formatFeedUsageTotal(feedTodayRecords, feedUnit) : feedUnitError ? "Unavailable" : "…"} />
+            <StatTile icon={Wheat} label="Feed Stock" value={feedUnit ? formatFeedStockTotal(feedBatches, feedUnit) : feedUnitError ? "Unavailable" : "…"} />
           </div>
+          {feedUnitError && (
+            <div className="flex items-center justify-between gap-2 rounded-lg bg-[var(--color-danger)]/10 px-3 py-2 text-sm text-[var(--color-danger)]">
+              {feedUnitError}
+              <button type="button" onClick={reloadFeedUnit} className="text-xs font-semibold text-[var(--color-primary)]">
+                Retry
+              </button>
+            </div>
+          )}
 
           <div>
             <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">My Feed Records</h2>
@@ -106,11 +138,11 @@ export default function StaffFeedsVitaminsPanel({
                     </thead>
                     <tbody>
                       {myFeedRecords.map((record) => (
-                        <tr key={record.id} className="border-b border-[var(--color-border)] last:border-0">
+                        <tr key={record.id} data-record-id={record.id} className={rowClass(record.id)}>
                           <td className="px-4 py-3 text-[var(--color-foreground)]">{new Date(`${record.distributionDate}T00:00:00`).toLocaleDateString()}</td>
                           <td className="px-4 py-3 text-[var(--color-muted)]">{record.feedName}</td>
                           <td className="px-4 py-3 text-[var(--color-muted)]">{record.housePen}</td>
-                          <td className="px-4 py-3 text-[var(--color-foreground)]">{record.quantityUsed.toLocaleString()} {record.unit}</td>
+                          <td className="px-4 py-3 text-[var(--color-foreground)]">{formatFeedUsage(record, feedUnit ?? record.enteredUnit)}</td>
                           <td className="px-4 py-3">
                             <ProductionStatusBadge status={record.status} />
                             {record.status === "rejected" && record.reviewNotes && (
@@ -172,19 +204,19 @@ export default function StaffFeedsVitaminsPanel({
                         <th className="px-4 py-3 font-medium">Vitamin</th>
                         <th className="px-4 py-3 font-medium">House/Pen</th>
                         <th className="px-4 py-3 font-medium">Quantity</th>
-                        <th className="px-4 py-3 font-medium">Purpose</th>
+                        <th className="px-4 py-3 font-medium">Remarks</th>
                         <th className="px-4 py-3 font-medium">Status</th>
                         <th className="px-4 py-3 font-medium">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {myVitaminRecords.map((record) => (
-                        <tr key={record.id} className="border-b border-[var(--color-border)] last:border-0">
+                        <tr key={record.id} data-record-id={record.id} className={rowClass(record.id)}>
                           <td className="px-4 py-3 text-[var(--color-foreground)]">{new Date(`${record.administrationDate}T00:00:00`).toLocaleDateString()}</td>
                           <td className="px-4 py-3 text-[var(--color-muted)]">{record.vitaminName}</td>
                           <td className="px-4 py-3 text-[var(--color-muted)]">{record.housePen}</td>
-                          <td className="px-4 py-3 text-[var(--color-foreground)]">{record.quantityUsed.toLocaleString()} {record.unit}</td>
-                          <td className="px-4 py-3 text-[var(--color-muted)]">{record.purpose ?? "—"}</td>
+                          <td className="px-4 py-3 text-[var(--color-foreground)]">{record.quantityUsed.toLocaleString()} {formatUnitLabel(record.unit, record.quantityUsed)}</td>
+                          <td className="max-w-[200px] px-4 py-3 text-[var(--color-muted)]">{record.remarks ?? "—"}</td>
                           <td className="px-4 py-3">
                             <ProductionStatusBadge status={record.status} />
                             {record.status === "rejected" && record.reviewNotes && (
@@ -245,6 +277,7 @@ export default function StaffFeedsVitaminsPanel({
               : availableVitaminBatches
           }
           useResubmitFlow={editingVitaminRecord !== "new"}
+          assignedPoultryHouseId={assignedPoultryHouseId}
           onClose={() => setEditingVitaminRecord(null)}
           onSaved={() => {
             setEditingVitaminRecord(null);

@@ -47,6 +47,7 @@ function toInputState(record: EggProductionRecord | null, fixedFarmId?: string):
       largeEggs: record.largeEggs,
       xLargeEggs: record.xLargeEggs,
       jumboEggs: record.jumboEggs,
+      superJumboEggs: record.superJumboEggs,
       damagedCrackedEggs: record.damagedCrackedEggs,
       eggsSold: record.eggsSold,
       notes: record.notes,
@@ -66,6 +67,7 @@ function toInputState(record: EggProductionRecord | null, fixedFarmId?: string):
     largeEggs: 0,
     xLargeEggs: 0,
     jumboEggs: 0,
+    superJumboEggs: 0,
     damagedCrackedEggs: 0,
     eggsSold: 0,
     notes: null,
@@ -143,7 +145,7 @@ export default function EggProductionFormDrawer({
   // Good Eggs Total only — Damaged/Cracked is tracked separately (a loss
   // count) and deliberately never added into it.
   const goodTotal =
-    input.peeweeEggs + input.smallEggs + input.mediumEggs + input.largeEggs + input.xLargeEggs + input.jumboEggs;
+    input.peeweeEggs + input.smallEggs + input.mediumEggs + input.largeEggs + input.xLargeEggs + input.jumboEggs + input.superJumboEggs;
   const eggsCollected = goodTotal;
   const numberOfTrays = traysForGoodEggs(goodTotal);
 
@@ -305,8 +307,9 @@ export default function EggProductionFormDrawer({
                 {numberField("Large eggs", "largeEggs", input, setInput)}
                 {numberField("X Large eggs", "xLargeEggs", input, setInput)}
                 {numberField("Jumbo eggs", "jumboEggs", input, setInput)}
+                {numberField("Super Jumbo eggs", "superJumboEggs", input, setInput)}
               </div>
-              <div className="mt-3">{readOnlyField("Good eggs total", goodTotal, "Peewee + Small + Medium + Large + X Large + Jumbo")}</div>
+              <div className="mt-3">{readOnlyField("Good eggs total", goodTotal, "Peewee + Small + Medium + Large + X Large + Jumbo + Super Jumbo")}</div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

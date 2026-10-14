@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, Loader2, Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { createPoultryHouse, listPoultryHouses } from "@poultryhub/shared/services/poultryHouseService";
 import { normalizeHouseName, type PoultryHouse } from "@poultryhub/shared/types/poultryHouse";
 import AddPoultryHouseDialog from "./AddPoultryHouseDialog";
-
-const NEW_HOUSE_VALUE = "__new_house__";
-const DIVIDER_VALUE = "__divider__";
+import MobileSelect from "../ui/MobileSelect";
 
 const UNASSIGNED_VALUE = "";
 
@@ -60,11 +58,6 @@ export default function PoultryHouseSelect({ id, farmId, value, onChange, canMan
   }, [farmId]);
 
   const handleSelectChange = (raw: string) => {
-    if (raw === NEW_HOUSE_VALUE) {
-      setAddOpen(true);
-      return;
-    }
-    if (raw === DIVIDER_VALUE) return;
     if (raw === UNASSIGNED_VALUE) {
       if (allowUnassigned) onChange(null);
       return;
@@ -148,48 +141,41 @@ export default function PoultryHouseSelect({ id, farmId, value, onChange, canMan
   // house. Keeps the first occurrence per normalized name; never drops the
   // currently-selected house even if it would otherwise be deduped away,
   // so an existing record's selection never silently disappears.
+  // Records that store the house by name (vitamin administration's house_pen)
+  // pass that name as `value` — resolve it to the matching house's id.
+  const resolvedValue =
+    houses.find((h) => h.id === value)?.id ??
+    (value ? houses.find((h) => normalizeHouseName(h.name) === normalizeHouseName(value))?.id : undefined) ??
+    value;
+
   const seenNames = new Set<string>();
   const visibleHouses = houses.filter((house) => {
     const key = normalizeHouseName(house.name);
-    if (house.id === value) return true;
+    if (house.id === resolvedValue) return true;
     if (seenNames.has(key)) return false;
     seenNames.add(key);
     return true;
   });
 
+  const options = [
+    ...(allowUnassigned ? [{ value: UNASSIGNED_VALUE, label: "Unassigned" }] : []),
+    ...visibleHouses.map((house) => ({ value: house.id, label: house.name })),
+  ];
+
   return (
-    <div className="relative">
-      <select
+    <div>
+      <MobileSelect
         id={id}
         value={value}
+        onChange={handleSelectChange}
         disabled={disabled}
-        onChange={(e) => handleSelectChange(e.target.value)}
-        className="w-full appearance-none rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 pr-9 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)] disabled:opacity-60"
-      >
-        {allowUnassigned ? (
-          <option value={UNASSIGNED_VALUE}>Unassigned</option>
-        ) : (
-          <option value="" disabled>
-            Select Poultry House / Pen
-          </option>
-        )}
-        {visibleHouses.map((house) => (
-          <option key={house.id} value={house.id}>
-            {house.name}
-          </option>
-        ))}
-        {canManage && (
-          <>
-            <option value={DIVIDER_VALUE} disabled>
-              ──────────
-            </option>
-            <option value={NEW_HOUSE_VALUE} style={{ color: "var(--color-primary)" }}>
-              + Add new house/pen…
-            </option>
-          </>
-        )}
-      </select>
-      <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
+        placeholder="Select Poultry House / Pen"
+        sheetTitle="Select Poultry House / Pen"
+        searchable={visibleHouses.length > 6}
+        searchPlaceholder="Search houses/pens…"
+        options={options}
+        trailingAction={canManage ? { label: "Add new house/pen…", onClick: () => setAddOpen(true) } : undefined}
+      />
       {addOpen && <AddPoultryHouseDialog onCancel={() => setAddOpen(false)} onConfirm={handleCreate} creating={creating} />}
     </div>
   );

@@ -3,10 +3,11 @@ import ChartCard from "@poultryhub/shared/components/dashboard/ChartCard";
 import type { SeriesPoint } from "@poultryhub/shared/types/dashboard";
 import { axisTick, chartAnimation, gridProps, tooltipContentStyle, tooltipItemStyle, tooltipLabelStyle } from "@poultryhub/shared/components/dashboard/charts/chartTheme";
 
-export default function FarmFeedConsumptionChart({ data }: { data: SeriesPoint[] }) {
-
+/** Approved usage per day, in the farm's Feed Consumption Unit (the data is already converted — this only labels it). */
+export default function FarmFeedConsumptionChart({ data, unit }: { data: SeriesPoint[]; unit: "sack" | "kg" }) {
+  const unitLabel = unit === "kg" ? "kg" : "sacks";
   return (
-    <ChartCard title="Feed Consumption" subtitle="This week, in kg">
+    <ChartCard title="Feed Consumption" subtitle={`Last 14 days with usage, in ${unitLabel}`}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
           <CartesianGrid {...gridProps} />
@@ -16,7 +17,7 @@ export default function FarmFeedConsumptionChart({ data }: { data: SeriesPoint[]
             contentStyle={tooltipContentStyle}
             labelStyle={tooltipLabelStyle}
             itemStyle={tooltipItemStyle}
-            formatter={(value) => [`${Number(value).toLocaleString()} kg`, "Consumed"]}
+            formatter={(value) => [`${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}`, "Consumed"]}
           />
           <Bar dataKey="value" fill="var(--chart-series-3)" radius={[4, 4, 0, 0]} maxBarSize={28} {...chartAnimation} />
         </BarChart>

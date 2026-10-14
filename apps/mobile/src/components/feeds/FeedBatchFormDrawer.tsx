@@ -5,9 +5,11 @@ import { getPurchase, recordFeedPurchase } from "@poultryhub/shared/services/pur
 import { filterDecimalText, filterIntegerText, parseNumericText, stripLeadingZeros } from "@poultryhub/shared/lib/numericInput";
 import { useToast } from "@poultryhub/shared/components/ui/ToastContext";
 import PurchaseReceiptModal from "@poultryhub/shared/components/finance/PurchaseReceiptModal";
-import { FEED_BRANDS, FEED_CATEGORIES, FEED_PACKAGE_SIZES, FEED_UNIT, formatFeedPackaging, type FeedBatch, type FeedBatchInput } from "@poultryhub/shared/types/feedVitamin";
+import { FEED_CATEGORIES, FEED_PACKAGE_SIZES, FEED_UNIT, formatFeedPackaging, type FeedBatch, type FeedBatchInput } from "@poultryhub/shared/types/feedVitamin";
 import type { Purchase } from "@poultryhub/shared/types/purchase";
 import { getErrorMessage } from "@poultryhub/shared/lib/errorMessage";
+import FeedBrandSelect from "./FeedBrandSelect";
+import MobileSelect from "../ui/MobileSelect";
 
 interface FeedBatchFormDrawerProps {
   /** null = add mode */
@@ -47,8 +49,9 @@ function toInputState(batch: FeedBatch | null, fixedFarmId: string): FeedBatchIn
   return {
     farmId: fixedFarmId,
     feedName: "",
+    // Brand comes from the farm's feed catalog (feed_types) — nothing preselected.
     category: FEED_CATEGORIES[0],
-    brand: FEED_BRANDS[0],
+    brand: null,
     batchNumber: null,
     supplier: null,
     quantity: 0,
@@ -82,6 +85,10 @@ export default function FeedBatchFormDrawer({ batch, fixedFarmId, onClose, onSav
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!input.brand || !input.category || !input.packageSize) {
+      setError("Select a feed brand, category and sack size (or add a new feed type).");
+      return;
+    }
     if (input.quantity <= 0) {
       setError("Quantity must be greater than zero.");
       return;
@@ -159,29 +166,35 @@ export default function FeedBatchFormDrawer({ batch, fixedFarmId, onClose, onSav
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="feed-brand" className="text-sm font-medium text-[var(--color-foreground)]">Feed Brand</label>
-                <select
+                <FeedBrandSelect
                   id="feed-brand"
-                  value={input.brand ?? ""}
-                  onChange={(e) => setInput((prev) => ({ ...prev, brand: e.target.value }))}
-                  className={inputClass}
-                >
-                  {FEED_BRANDS.map((b) => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
+                  farmId={input.farmId}
+                  canManage
+                  value={input.brand}
+                  onChange={(brand) => {
+                    setInput((prev) => ({ ...prev, brand }));
+                    setError(null);
+                  }}
+                  onFeedTypeAdded={(t) => {
+                    setInput((prev) => ({ ...prev, brand: t.brand, category: t.category, packageSize: t.packageSize }));
+                    setError(null);
+                  }}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="feed-category" className="text-sm font-medium text-[var(--color-foreground)]">Feed Category</label>
-                <select
+                <MobileSelect
                   id="feed-category"
                   value={input.category ?? ""}
-                  onChange={(e) => setInput((prev) => ({ ...prev, category: e.target.value }))}
-                  className={inputClass}
-                >
-                  {FEED_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setInput((prev) => ({ ...prev, category: v }))}
+                  sheetTitle="Feed Category"
+                  options={[
+                    ...(input.category && !FEED_CATEGORIES.includes(input.category as (typeof FEED_CATEGORIES)[number])
+                      ? [{ value: input.category, label: input.category }]
+                      : []),
+                    ...FEED_CATEGORIES.map((c) => ({ value: c, label: c })),
+                  ]}
+                />
               </div>
             </div>
 
@@ -210,19 +223,18 @@ export default function FeedBatchFormDrawer({ batch, fixedFarmId, onClose, onSav
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="feed-package-size" className="text-sm font-medium text-[var(--color-foreground)]">Sack Size</label>
-                <select
+                <MobileSelect
                   id="feed-package-size"
                   value={input.packageSize ?? ""}
-                  onChange={(e) => setInput((prev) => ({ ...prev, packageSize: e.target.value }))}
-                  className={inputClass}
-                >
-                  {input.packageSize && !FEED_PACKAGE_SIZES.includes(input.packageSize as (typeof FEED_PACKAGE_SIZES)[number]) && (
-                    <option value={input.packageSize}>{formatFeedPackaging(input.packageSize)}</option>
-                  )}
-                  {FEED_PACKAGE_SIZES.map((s) => (
-                    <option key={s} value={s}>{formatFeedPackaging(s)}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setInput((prev) => ({ ...prev, packageSize: v }))}
+                  sheetTitle="Sack Size"
+                  options={[
+                    ...(input.packageSize && !FEED_PACKAGE_SIZES.includes(input.packageSize as (typeof FEED_PACKAGE_SIZES)[number])
+                      ? [{ value: input.packageSize, label: formatFeedPackaging(input.packageSize) }]
+                      : []),
+                    ...FEED_PACKAGE_SIZES.map((sz) => ({ value: sz, label: formatFeedPackaging(sz) })),
+                  ]}
+                />
               </div>
             </div>
 

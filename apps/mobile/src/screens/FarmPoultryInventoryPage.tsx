@@ -1,38 +1,27 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { AlertCircle, Download, Loader2, Printer, ShieldAlert } from "lucide-react";
+import { AlertCircle, Loader2, Printer, ShieldAlert } from "lucide-react";
 import { listInventoryEvents, getStaffCanDeleteInventory } from "@poultryhub/shared/services/poultryInventoryService";
 import { listFeedBatches, listFeedDistributionRecords, listVitaminAdministrationRecords, listVitaminBatches } from "@poultryhub/shared/services/feedVitaminService";
 import { listMortalityRecords } from "@poultryhub/shared/services/mortalityRecordService";
-import { downloadCsv } from "@poultryhub/shared/lib/exportCsv";
+import ReportLinksCard from "../components/reports/ReportLinksCard";
 import PoultryStockPanel from "../components/inventory/PoultryStockPanel";
 import PageBackButton from "../components/PageBackButton";
 import FeedsVitaminsPanel from "../components/inventory/FeedsVitaminsPanel";
 import MortalityPanel from "../components/inventory/MortalityPanel";
 import { useAuth } from "@poultryhub/shared/context/AuthContext";
-import type { PoultryEvent, PoultryEventType } from "@poultryhub/shared/types/poultryInventory";
+import type { PoultryEvent } from "@poultryhub/shared/types/poultryInventory";
 import type { FeedBatch, FeedDistributionRecord, VitaminAdministrationRecord, VitaminBatch } from "@poultryhub/shared/types/feedVitamin";
 import type { MortalityRecord } from "@poultryhub/shared/types/mortality";
 import { getErrorMessage } from "@poultryhub/shared/lib/errorMessage";
 
 type Tab = "stock" | "feeds" | "mortality";
 
-const EVENT_TYPE_LABELS: Record<PoultryEventType, string> = {
-  arrival: "New Arrival",
-  transfer: "Transfer",
-  sale: "Sale",
-  culling: "Culling",
-  mortality: "Mortality",
-  count_update: "Count Update",
-};
-
 function initialTabFromPath(pathname: string): Tab {
   if (pathname.endsWith("/feed") || pathname.endsWith("/vitamins")) return "feeds";
   if (pathname.endsWith("/mortality")) return "mortality";
   return "stock";
 }
-
-const todayIso = () => new Date().toISOString().slice(0, 10);
 
 export default function FarmPoultryInventoryPage() {
   const { user } = useAuth();
@@ -87,81 +76,6 @@ export default function FarmPoultryInventoryPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.farmId, user?.role]);
-
-  const today = todayIso();
-
-  const handleExportPoultryStock = () =>
-    downloadCsv(
-      `poultry-stock-report-${today}.csv`,
-      events.map((e) => ({
-        Date: e.eventDate,
-        "Bird Type": e.birdType,
-        Event: EVENT_TYPE_LABELS[e.eventType],
-        Quantity: e.quantity,
-        Breed: e.breed ?? "",
-        Age: e.ageWeeks != null ? `${e.ageWeeks} weeks` : "",
-        Source: e.source ?? "",
-        "From/To": [e.fromHousePen, e.toHousePen].filter(Boolean).join(" → "),
-        "Recorded By": e.recordedByName ?? "",
-      }))
-    );
-
-  const handleExportFeedConsumption = (period: "Daily" | "Weekly" | "Monthly") =>
-    downloadCsv(
-      `feed-consumption-${period.toLowerCase()}-${today}.csv`,
-      feedDistribution
-        .filter((r) => r.status === "approved")
-        .map((r) => ({ Date: r.distributionDate, Feed: r.feedName, "House/Pen": r.housePen, Quantity: r.quantityUsed, Unit: r.unit }))
-    );
-
-  const handleExportVitaminUsage = () =>
-    downloadCsv(
-      `vitamin-usage-${today}.csv`,
-      vitaminAdministration
-        .filter((r) => r.status === "approved")
-        .map((r) => ({ Date: r.administrationDate, Vitamin: r.vitaminName, "House/Pen": r.housePen, Dosage: r.dosage ?? "", Quantity: r.quantityUsed, Unit: r.unit, Purpose: r.purpose ?? "" }))
-    );
-
-  const handleExportMortality = () =>
-    downloadCsv(
-      `mortality-report-${today}.csv`,
-      mortalityRecords.map((r) => ({
-        Date: r.recordDate,
-        "House/Pen": r.housePen,
-        "Poultry Type": r.birdType ?? "",
-        "Dead Birds": r.deadBirds,
-        "Cause of Death": r.causeOfDeath ?? "",
-        "Disposal Method": r.disposalMethod ?? "",
-        "Recorded By": r.recordedByName ?? "",
-        Status: r.status,
-      }))
-    );
-
-  const handleExportInventoryMovement = () =>
-    downloadCsv(`inventory-movement-report-${today}.csv`, [
-      ...feedBatches.map((f) => ({ Type: "Feed batch added", Item: f.feedName, Date: f.purchaseDate, Quantity: f.quantity, Unit: f.unit })),
-      ...vitaminBatches.map((v) => ({ Type: "Vitamin batch added", Item: v.vitaminName, Date: v.purchaseDate, Quantity: v.quantity, Unit: v.unit })),
-      ...feedDistribution.filter((r) => r.status === "approved").map((r) => ({ Type: "Feed distributed", Item: r.feedName, Date: r.distributionDate, Quantity: -r.quantityUsed, Unit: r.unit })),
-      ...vitaminAdministration.filter((r) => r.status === "approved").map((r) => ({ Type: "Vitamin administered", Item: r.vitaminName, Date: r.administrationDate, Quantity: -r.quantityUsed, Unit: r.unit })),
-    ]);
-
-  const handleExportMonthlyInventory = () => {
-    const monthPrefix = today.slice(0, 7);
-    downloadCsv(`monthly-inventory-report-${monthPrefix}.csv`, [
-      ...events
-        .filter((e) => e.eventDate.slice(0, 7) === monthPrefix)
-        .map((e) => ({ Module: "Poultry", Date: e.eventDate, Detail: `${EVENT_TYPE_LABELS[e.eventType]} — ${e.birdType}`, Quantity: e.quantity })),
-      ...feedDistribution
-        .filter((r) => r.status === "approved" && r.distributionDate.slice(0, 7) === monthPrefix)
-        .map((r) => ({ Module: "Feed", Date: r.distributionDate, Detail: r.feedName, Quantity: -r.quantityUsed })),
-      ...vitaminAdministration
-        .filter((r) => r.status === "approved" && r.administrationDate.slice(0, 7) === monthPrefix)
-        .map((r) => ({ Module: "Vitamins", Date: r.administrationDate, Detail: r.vitaminName, Quantity: -r.quantityUsed })),
-      ...mortalityRecords
-        .filter((r) => r.status === "approved" && r.recordDate.slice(0, 7) === monthPrefix)
-        .map((r) => ({ Module: "Mortality", Date: r.recordDate, Detail: r.causeOfDeath ?? "", Quantity: -r.deadBirds })),
-    ]);
-  };
 
   if (!user?.farmId) {
     return (
@@ -248,38 +162,18 @@ export default function FarmPoultryInventoryPage() {
         </>
       )}
 
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-4 print:hidden">
-        <h2 className="font-display text-sm font-semibold text-[var(--color-foreground)]">Reports</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" onClick={handleExportPoultryStock} className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]">
-            <Download size={13} /> Poultry Stock Report
-          </button>
-          <button type="button" onClick={() => handleExportFeedConsumption("Daily")} className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]">
-            <Download size={13} /> Daily Feed Consumption
-          </button>
-          <button type="button" onClick={() => handleExportFeedConsumption("Weekly")} className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]">
-            <Download size={13} /> Weekly Feed Consumption
-          </button>
-          <button type="button" onClick={() => handleExportFeedConsumption("Monthly")} className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]">
-            <Download size={13} /> Monthly Feed Consumption
-          </button>
-          <button type="button" onClick={handleExportVitaminUsage} className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]">
-            <Download size={13} /> Vitamin Usage Report
-          </button>
-          <button type="button" onClick={handleExportMortality} className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]">
-            <Download size={13} /> Mortality Report
-          </button>
-          <button type="button" onClick={handleExportInventoryMovement} className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]">
-            <Download size={13} /> Stock Movement Report
-          </button>
-          <button type="button" onClick={handleExportMonthlyInventory} className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]">
-            <Download size={13} /> Monthly Inventory Report
-          </button>
-          <button type="button" onClick={() => window.print()} className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]">
-            <Printer size={13} /> Print / Save as PDF
-          </button>
-        </div>
-      </div>
+      <ReportLinksCard
+        reports={[
+          { id: "poultry-stock", label: "Poultry Stock Report" },
+          { id: "feed-daily", label: "Daily Feed Consumption" },
+          { id: "feed-weekly", label: "Weekly Feed Consumption" },
+          { id: "feed-monthly", label: "Monthly Feed Consumption" },
+          { id: "vitamin-usage", label: "Vitamin Usage Report" },
+          { id: "mortality", label: "Mortality Report" },
+          { id: "stock-movement", label: "Stock Movement Report" },
+          { id: "monthly-inventory", label: "Monthly Inventory Report" },
+        ]}
+      />
     </div>
   );
 }

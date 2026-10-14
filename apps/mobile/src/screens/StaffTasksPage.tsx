@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { ListChecks, ShieldAlert } from "lucide-react";
 import { listTasks } from "@poultryhub/shared/services/taskService";
 import TaskStatusBadge from "../components/tasks/TaskStatusBadge";
-import TaskPriorityBadge from "../components/tasks/TaskPriorityBadge";
 import { SkeletonCard } from "@poultryhub/shared/components/ui/Skeleton";
 import { StaggerGroup, StaggerItem } from "@poultryhub/shared/components/motion/Stagger";
 import EmptyState from "@poultryhub/shared/components/ui/EmptyState";
@@ -115,7 +114,6 @@ export default function StaffTasksPage() {
                         </div>
                         <div className="flex flex-col items-end gap-1.5">
                           <TaskStatusBadge status={task.status} overdue={overdue} />
-                          <TaskPriorityBadge priority={task.priority} />
                         </div>
                       </div>
                       {task.description && <p className="mt-2 text-xs text-[var(--color-muted)] line-clamp-2">{task.description}</p>}

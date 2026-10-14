@@ -71,6 +71,8 @@ export const FARM_SALES_EXPENSES_PATH = "/farm/sales";
 export const FARM_EGG_PRICING_PATH = "/farm/egg-pricing";
 /** Absolute path to the Farm portal's read-only "My Farm" detail page — real (Supabase-backed), not a placeholder. Farm Admin/Manager only, linked from the Profile page's "My Farm" card. */
 export const FARM_PROFILE_PATH = "/farm/profile";
+/** Absolute path to the Reports hub (/farm/reports) and each report (/farm/reports/:reportId) — every role; financial reports are Farm Admin/Manager only. */
+export const FARM_REPORTS_PATH = "/farm/reports";
 
 // ── Shared link definitions — reused across roles so paths/icons stay in sync ──
 const dashboardLink: NavLink = { type: "link", label: "Dashboard", path: FARM_DASHBOARD_PATH, icon: LayoutDashboard };
@@ -84,19 +86,13 @@ const eggProductionLink: NavLink = { type: "link", label: "Egg Production", path
 const poultryInventoryLink: NavLink = { type: "link", label: "Poultry Inventory", path: FARM_POULTRY_INVENTORY_PATH, icon: Bird };
 const salesExpensesLink: NavLink = { type: "link", label: "Sales & Expenses", path: FARM_SALES_EXPENSES_PATH, icon: Wallet };
 const eggPricingLink: NavLink = { type: "link", label: "Egg Pricing", path: FARM_EGG_PRICING_PATH, icon: Tag };
-// Points at Sales & Expenses rather than a separate page — that module already has its own full Reports section (Sales/Expense/Financial Summary/Daily/Weekly/Monthly reports), so "Reports" isn't a distinct destination.
-const reportsLink: NavLink = { type: "link", label: "Reports", path: FARM_SALES_EXPENSES_PATH, icon: FileChartColumn };
+// The Reports module: one hub for every inventory, production, financial and activity report.
+const reportsLink: NavLink = { type: "link", label: "Reports", path: FARM_REPORTS_PATH, icon: FileChartColumn };
 const auditLogsLink: NavLink = { type: "link", label: "Audit Logs", path: FARM_AUDIT_LOGS_PATH, icon: Logs };
 const activityHistoryLink: NavLink = { type: "link", label: "My Activity", path: FARM_AUDIT_LOGS_PATH, icon: Logs };
 const farmProfileLink: NavLink = { type: "link", label: "Farm Profile", path: FARM_PROFILE_PATH, icon: Building2 };
 
 // ── Sidebar content per role ──
-// reportsLink is deliberately not listed here — it's the same destination as
-// salesExpensesLink (Sales & Expenses already has its own Reports section),
-// so the sidebar shows just the one entry. reportsLink still exists as its
-// own constant for the mobile bottom nav below, which needs a distinct
-// "Reports" tab slot regardless of where it points.
-//
 // Notifications and Mortality Records are deliberately not listed here —
 // Notifications' only UI is the topbar bell now (still fully functional,
 // just no separate sidebar destination), and Mortality lives inside Poultry
@@ -109,6 +105,7 @@ const farmAdminNavigation: NavLink[] = [
   poultryInventoryLink,
   salesExpensesLink,
   eggPricingLink,
+  reportsLink,
   auditLogsLink,
   farmProfileLink,
 ];
@@ -124,6 +121,7 @@ const staffNavigation: NavLink[] = [
   tasksLink,
   eggProductionLink,
   poultryInventoryLink,
+  reportsLink,
   activityHistoryLink,
 ];
 

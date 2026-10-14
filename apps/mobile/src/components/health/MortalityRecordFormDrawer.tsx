@@ -13,6 +13,7 @@ import { BIRD_TYPES } from "@poultryhub/shared/types/poultryInventory";
 import type { MortalityRecord, MortalityRecordInput } from "@poultryhub/shared/types/mortality";
 import PhotoField from "../PhotoField";
 import { getErrorMessage } from "@poultryhub/shared/lib/errorMessage";
+import MobileSelect from "../ui/MobileSelect";
 
 interface MortalityRecordFormDrawerProps {
   /** null = create mode */
@@ -203,18 +204,13 @@ export default function MortalityRecordFormDrawer({
                 <label htmlFor="mr-bird-type" className="text-sm font-medium text-[var(--color-foreground)]">
                   Poultry Type
                 </label>
-                <select
+                <MobileSelect
                   id="mr-bird-type"
                   value={input.birdType ?? ""}
-                  onChange={(e) => setInput((prev) => ({ ...prev, birdType: (e.target.value || null) as MortalityRecordInput["birdType"] }))}
-                  className={inputClass}
-                >
-                  {BIRD_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setInput((prev) => ({ ...prev, birdType: (v || null) as MortalityRecordInput["birdType"] }))}
+                  sheetTitle="Poultry Type"
+                  options={BIRD_TYPES.map((type) => ({ value: type, label: type }))}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="mr-dead-birds" className="text-sm font-medium text-[var(--color-foreground)]">

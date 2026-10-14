@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Loader2, Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { createLayerBreed, listLayerBreeds } from "@poultryhub/shared/services/layerBreedService";
 import type { EggColor, LayerBreed } from "@poultryhub/shared/types/layerBreed";
 import AddLayerBreedDialog from "./AddLayerBreedDialog";
-
-const NEW_BREED_VALUE = "__new_breed__";
+import MobileSelect, { type MobileSelectGroup } from "../ui/MobileSelect";
 
 interface LayerBreedSelectProps {
   id?: string;
@@ -57,10 +56,6 @@ export default function LayerBreedSelect({ id, farmId, value, onChange, canManag
   }, [breeds]);
 
   const handleSelectChange = (raw: string) => {
-    if (raw === NEW_BREED_VALUE) {
-      setAddOpen(true);
-      return;
-    }
     const breed = breeds.find((b) => b.name === raw);
     onChange(breed ?? null);
   };
@@ -89,31 +84,23 @@ export default function LayerBreedSelect({ id, farmId, value, onChange, canManag
     return <p className="text-sm text-[var(--color-danger)]">{loadError}</p>;
   }
 
+  const optionGroups: MobileSelectGroup[] = (["White", "Brown", "Other"] as EggColor[])
+    .map((color) => ({ label: GROUP_LABEL[color], options: (grouped.get(color) ?? []).map((breed) => ({ value: breed.name, label: breed.name })) }))
+    .filter((group) => group.options.length > 0);
+
   return (
-    <div className="relative">
-      <select
+    <div>
+      <MobileSelect
         id={id}
         value={value}
-        onChange={(e) => handleSelectChange(e.target.value)}
-        className="w-full appearance-none rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 pr-9 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)]"
-      >
-        <option value="" disabled>
-          Select Layer Breed / Strain
-        </option>
-        {(["White", "Brown", "Other"] as EggColor[]).map((color) => {
-          const items = grouped.get(color) ?? [];
-          if (items.length === 0) return null;
-          return (
-            <optgroup key={color} label={GROUP_LABEL[color]}>
-              {items.map((breed) => (
-                <option key={breed.id} value={breed.name}>{breed.name}</option>
-              ))}
-            </optgroup>
-          );
-        })}
-        {canManage && <option value={NEW_BREED_VALUE}>+ Add Layer Breed / Strain…</option>}
-      </select>
-      <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
+        onChange={handleSelectChange}
+        placeholder="Select Layer Breed / Strain"
+        sheetTitle="Select Layer Breed / Strain"
+        searchable={breeds.length > 6}
+        searchPlaceholder="Search breeds/strains…"
+        options={optionGroups}
+        trailingAction={canManage ? { label: "Add Layer Breed / Strain…", onClick: () => setAddOpen(true) } : undefined}
+      />
       {canManage && !addOpen && breeds.length === 0 && (
         <button
           type="button"

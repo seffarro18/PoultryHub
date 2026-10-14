@@ -10,6 +10,7 @@ import {
 import StaffFormDrawer from "../components/staff/StaffFormDrawer";
 import PageBackButton from "../components/PageBackButton";
 import AccountStatusBadge from "@poultryhub/shared/components/users/AccountStatusBadge";
+import MobileSelect from "../components/ui/MobileSelect";
 import { useAuth } from "@poultryhub/shared/context/AuthContext";
 import { useBreakpoint } from "@poultryhub/shared/hooks/useBreakpoint";
 import type { AccountStatus } from "@poultryhub/shared/types/auth";
@@ -234,17 +235,13 @@ export default function StaffManagementPage() {
             className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] py-2 pl-9 pr-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted)] focus-visible:border-[var(--color-primary)]"
           />
         </div>
-        <select
+        <MobileSelect
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as AccountStatus | "All")}
-          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)]"
-        >
-          {STATUS_FILTERS.map((s) => (
-            <option key={s} value={s}>
-              {s === "All" ? "All statuses" : s[0].toUpperCase() + s.slice(1)}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => setStatusFilter(v as AccountStatus | "All")}
+          sheetTitle="Filter by Status"
+          className="bg-[var(--color-card)] sm:w-auto"
+          options={STATUS_FILTERS.map((s) => ({ value: s, label: s === "All" ? "All statuses" : s[0].toUpperCase() + s.slice(1) }))}
+        />
       </div>
 
       {isLoading ? (

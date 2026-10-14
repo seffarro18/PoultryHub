@@ -11,6 +11,7 @@ import type { PoultryHouse } from "@poultryhub/shared/types/poultryHouse";
 import EggColorBadge from "@poultryhub/shared/components/inventory/EggColorBadge";
 import LayerBreedSelect from "./LayerBreedSelect";
 import PoultryHouseSelect from "../production/PoultryHouseSelect";
+import MobileSelect, { type MobileSelectGroup } from "../ui/MobileSelect";
 
 const EVENT_TYPE_LABELS: Record<PoultryEventType, string> = {
   arrival: "New Arrival",
@@ -36,8 +37,22 @@ const DEFAULT_STATUS_BY_EVENT_TYPE: Partial<Record<PoultryEventType, string>> = 
   count_update: "Active",
 };
 
-/** Static 1-100 week list, grouped by production stage for the Age <optgroup> dropdown — computed once at module load, not per render. */
-const ageWeekGroups = getLayerAgeWeekGroups();
+/** Static 1-100 week list, grouped by production stage for the Age dropdown sheet — computed once at module load, not per render. */
+const AGE_SELECT_GROUPS: MobileSelectGroup[] = getLayerAgeWeekGroups().map((group) => ({
+  label: group.label,
+  options: group.weeks.map((week) => ({ value: String(week), label: `${week} ${week === 1 ? "week" : "weeks"}` })),
+}));
+
+const STATUS_OPTIONS: MobileSelectGroup[] = [
+  {
+    options: [
+      { value: "Active", label: "Active" },
+      { value: "Sold", label: "Sold" },
+      { value: "Culled", label: "Culled" },
+      { value: "Transferred", label: "Transferred" },
+    ],
+  },
+];
 
 interface PoultryEventFormDrawerProps {
   /** null = create mode */
@@ -49,16 +64,18 @@ interface PoultryEventFormDrawerProps {
   events: PoultryEvent[];
   /** Farm Admin/Manager only — lets them register a new poultry house/pen or Layer Breed/Strain inline, same restriction as EggProductionFormDrawer's own canManageHouses. */
   canManageHouses?: boolean;
+  /** Staff: the database saves every Staff submission as pending (migration 0041's trigger) — this only makes the confirmation message say so. */
+  submitsForReview?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }
 
 /**
  * PoultryHub is a layer-chicken-only system — every new record is simply a
- * Layer. Editing an existing record (possibly a Chick/Grower/Breeder stage
- * logged before this restriction) keeps its own stored birdType untouched;
- * only new records are hardcoded. There's no UI control for this at all
- * anymore, by design.
+ * Layer. Editing an existing record (possibly a Grower/Breeder stage, or a
+ * historical Chick-type row from before "Chick" was removed entirely)
+ * keeps its own stored birdType untouched; only new records are hardcoded.
+ * There's no UI control for this at all anymore, by design.
  */
 function toInputState(event: PoultryEvent | null, fixedFarmId: string, defaultEventType: PoultryEventType): PoultryEventInput {
   if (event) {
@@ -103,6 +120,7 @@ export default function PoultryEventFormDrawer({
   allowedEventTypes,
   events,
   canManageHouses = false,
+  submitsForReview = false,
   onClose,
   onSaved,
 }: PoultryEventFormDrawerProps) {
@@ -262,10 +280,14 @@ export default function PoultryEventFormDrawer({
     try {
       if (isEdit) {
         await updateInventoryEvent(event.id, payload);
-        toast.success("Record updated.");
+        toast.success(submitsForReview ? "Record updated and resubmitted for Farm Admin approval." : "Record updated.");
       } else {
         await createInventoryEvent(payload);
-        toast.success("Inventory record added successfully.");
+        toast.success(
+          submitsForReview
+            ? "Submitted for Farm Admin approval — it'll count toward stock once approved."
+            : "Inventory record added successfully."
+        );
       }
       onSaved();
     } catch (err) {
@@ -309,19 +331,14 @@ export default function PoultryEventFormDrawer({
               <label htmlFor="event-type" className="text-sm font-medium text-[var(--color-foreground)]">
                 Event Type
               </label>
-              <select
+              <MobileSelect
                 id="event-type"
                 value={input.eventType}
-                onChange={(e) => handleEventTypeChange(e.target.value as PoultryEventType)}
+                onChange={(v) => handleEventTypeChange(v as PoultryEventType)}
                 disabled={isEdit}
-                className="rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)] disabled:opacity-60"
-              >
-                {allowedEventTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {EVENT_TYPE_LABELS[type]}
-                  </option>
-                ))}
-              </select>
+                sheetTitle="Event Type"
+                options={allowedEventTypes.map((type) => ({ value: type, label: EVENT_TYPE_LABELS[type] }))}
+              />
             </div>
 
             {/* 2. Date, 3. Quantity */}
@@ -427,23 +444,16 @@ export default function PoultryEventFormDrawer({
                   <label htmlFor="age-weeks" className="text-sm font-medium text-[var(--color-foreground)]">
                     Age
                   </label>
-                  <select
+                  <MobileSelect
                     id="age-weeks"
-                    value={input.ageWeeks ?? ""}
-                    onChange={(e) => setInput((prev) => ({ ...prev, ageWeeks: e.target.value ? Number(e.target.value) : null }))}
-                    className="rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)]"
-                  >
-                    <option value="">Select age</option>
-                    {ageWeekGroups.map((group) => (
-                      <optgroup key={group.label} label={group.label}>
-                        {group.weeks.map((week) => (
-                          <option key={week} value={week}>
-                            {week} {week === 1 ? "week" : "weeks"}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
+                    value={input.ageWeeks ? String(input.ageWeeks) : ""}
+                    onChange={(v) => setInput((prev) => ({ ...prev, ageWeeks: v ? Number(v) : null }))}
+                    placeholder="Select age"
+                    sheetTitle="Select Age"
+                    searchable
+                    searchPlaceholder="Search age…"
+                    options={AGE_SELECT_GROUPS}
+                  />
                   {input.ageWeeks && (
                     <p className="text-xs text-[var(--color-muted)]">{getLayerAgeStage(input.ageWeeks)}</p>
                   )}
@@ -471,17 +481,14 @@ export default function PoultryEventFormDrawer({
                 <label htmlFor="stock-status" className="text-sm font-medium text-[var(--color-foreground)]">
                   Status
                 </label>
-                <select
+                <MobileSelect
                   id="stock-status"
                   value={input.status ?? "Active"}
+                  onChange={() => {}}
                   disabled
-                  className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted-bg)] px-3 py-2 text-sm text-[var(--color-muted)] outline-none disabled:opacity-100"
-                >
-                  <option value="Active">Active</option>
-                  <option value="Sold">Sold</option>
-                  <option value="Culled">Culled</option>
-                  <option value="Transferred">Transferred</option>
-                </select>
+                  className="bg-[var(--color-muted-bg)] disabled:opacity-100"
+                  options={STATUS_OPTIONS}
+                />
               </div>
             </div>
 

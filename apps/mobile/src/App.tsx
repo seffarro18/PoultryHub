@@ -44,6 +44,7 @@ import PrivacyPage from "./screens/PrivacyPage";
 import HelpSupportPage from "./screens/HelpSupportPage";
 import AboutPage from "./screens/AboutPage";
 import HubPage from "./screens/HubPage";
+import FarmReportsPage from "./screens/FarmReportsPage";
 import {
   FARM_DASHBOARD_PATH,
   FARM_ACCOUNT_PATH,
@@ -59,6 +60,7 @@ import {
   FARM_SALES_EXPENSES_PATH,
   FARM_EGG_PRICING_PATH,
   FARM_PROFILE_PATH,
+  FARM_REPORTS_PATH,
   getAllFarmNavLinks,
   getOperationsHubItems,
   getInventoryHubItems,
@@ -82,7 +84,8 @@ const farmPlaceholders = getAllFarmNavLinks().filter(
     link.path !== FARM_AUDIT_LOGS_PATH &&
     link.path !== FARM_SALES_EXPENSES_PATH &&
     link.path !== FARM_EGG_PRICING_PATH &&
-    link.path !== FARM_PROFILE_PATH
+    link.path !== FARM_PROFILE_PATH &&
+    link.path !== FARM_REPORTS_PATH
 );
 
 /** Keeps the browser tab title in sync with the configured system name. */
@@ -250,6 +253,8 @@ export default function App() {
                 <Route path="egg-pricing" element={<FarmEggPricingPage />} />
                 <Route path="profile" element={<FarmProfilePage />} />
                 <Route path="notifications" element={<NotificationsRoute />} />
+                <Route path="reports" element={<FarmReportsPage />} />
+                <Route path="reports/:reportId" element={<FarmReportsPage />} />
                 <Route path="operations" element={<OperationsHubRoute />} />
                 {/* No nav link points here anymore (the Production bottom-nav tab now goes straight to
                     Egg Production) — kept as a redirect, not removed outright, in case anything external

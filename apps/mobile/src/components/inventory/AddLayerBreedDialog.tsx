@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import Button from "@poultryhub/shared/components/ui/Button";
 import { useEscapeKey } from "@poultryhub/shared/hooks/useEscapeKey";
 import { EGG_COLORS, type EggColor } from "@poultryhub/shared/types/layerBreed";
+import MobileSelect from "../ui/MobileSelect";
 
 interface AddLayerBreedDialogProps {
   onCancel: () => void;
@@ -71,16 +72,15 @@ export default function AddLayerBreedDialog({ onCancel, onConfirm, creating = fa
         <label htmlFor="new-layer-breed-color" className="mt-3 block text-sm font-medium text-[var(--color-foreground)]">
           Egg Color
         </label>
-        <select
-          id="new-layer-breed-color"
-          value={eggColor}
-          onChange={(e) => setEggColor(e.target.value as EggColor)}
-          className="mt-1.5 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)]"
-        >
-          {EGG_COLORS.map((c) => (
-            <option key={c} value={c}>{c === "Other" ? "Other / Not Specified" : c}</option>
-          ))}
-        </select>
+        <div className="mt-1.5">
+          <MobileSelect
+            id="new-layer-breed-color"
+            value={eggColor}
+            onChange={(v) => setEggColor(v as EggColor)}
+            sheetTitle="Egg Color"
+            options={EGG_COLORS.map((c) => ({ value: c, label: c === "Other" ? "Other / Not Specified" : c }))}
+          />
+        </div>
 
         {error && <p className="mt-2 text-sm text-[var(--color-danger)]">{error}</p>}
 

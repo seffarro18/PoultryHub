@@ -2,10 +2,13 @@ import { Link } from "react-router-dom";
 import { Egg, Plus } from "lucide-react";
 
 interface MobileEggHeroCardProps {
-  today: number;
-  weekly: number;
-  monthly: number;
+  /** null = that figure's underlying data failed to load — rendered as "Unavailable", never as a bare 0. */
+  today: number | null;
+  weekly: number | null;
+  monthly: number | null;
 }
+
+const formatCount = (value: number | null): string => (value === null ? "—" : value.toLocaleString());
 
 /**
  * The mobile dashboard's signature card — Today's Egg Production as the
@@ -24,9 +27,9 @@ export default function MobileEggHeroCard({ today, weekly, monthly }: MobileEggH
           <Egg size={28} strokeWidth={1.75} />
         </span>
         <div>
-          <p className="font-display text-3xl font-semibold text-[var(--color-foreground)]">{today.toLocaleString()}</p>
+          <p className="font-display text-3xl font-semibold text-[var(--color-foreground)]">{formatCount(today)}</p>
           <p className="text-xs text-[var(--color-muted)]">
-            {today > 0 ? "eggs collected today" : "No eggs logged yet today."}
+            {today === null ? "Couldn't load — tap Retry below" : today > 0 ? "eggs collected today" : "No eggs logged yet today."}
           </p>
         </div>
       </div>
@@ -40,15 +43,15 @@ export default function MobileEggHeroCard({ today, weekly, monthly }: MobileEggH
 
       <div className="mt-4 grid grid-cols-3 divide-x divide-[var(--color-border)] border-t border-[var(--color-border)] pt-4">
         <div className="text-center">
-          <p className="font-display text-lg font-semibold text-[var(--color-foreground)]">{today.toLocaleString()}</p>
+          <p className="font-display text-lg font-semibold text-[var(--color-foreground)]">{formatCount(today)}</p>
           <p className="text-[11px] text-[var(--color-muted)]">Today</p>
         </div>
         <div className="text-center">
-          <p className="font-display text-lg font-semibold text-[var(--color-foreground)]">{weekly.toLocaleString()}</p>
+          <p className="font-display text-lg font-semibold text-[var(--color-foreground)]">{formatCount(weekly)}</p>
           <p className="text-[11px] text-[var(--color-muted)]">Weekly</p>
         </div>
         <div className="text-center">
-          <p className="font-display text-lg font-semibold text-[var(--color-foreground)]">{monthly.toLocaleString()}</p>
+          <p className="font-display text-lg font-semibold text-[var(--color-foreground)]">{formatCount(monthly)}</p>
           <p className="text-[11px] text-[var(--color-muted)]">Monthly</p>
         </div>
       </div>

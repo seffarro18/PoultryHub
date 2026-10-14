@@ -6,15 +6,18 @@ import { filterDecimalText, filterIntegerText, parseNumericText, stripLeadingZer
 import { useToast } from "@poultryhub/shared/components/ui/ToastContext";
 import PurchaseReceiptModal from "@poultryhub/shared/components/finance/PurchaseReceiptModal";
 import {
-  VITAMIN_NAME_OPTIONS,
   VITAMIN_PACKAGE_SIZES_BY_UNIT,
   VITAMIN_UNIT_OPTIONS,
+  formatUnitLabel,
   type VitaminBatch,
   type VitaminBatchInput,
   type VitaminUnit,
 } from "@poultryhub/shared/types/feedVitamin";
 import type { Purchase } from "@poultryhub/shared/types/purchase";
 import { getErrorMessage } from "@poultryhub/shared/lib/errorMessage";
+import MobileSelect from "../ui/MobileSelect";
+import VitaminTypeSelect from "./VitaminTypeSelect";
+import type { VitaminTypeItem } from "@poultryhub/shared/types/catalog";
 
 interface VitaminBatchFormDrawerProps {
   /** null = add mode */
@@ -52,9 +55,10 @@ function toInputState(batch: VitaminBatch | null, fixedFarmId: string): VitaminB
   }
   return {
     farmId: fixedFarmId,
-    vitaminName: VITAMIN_NAME_OPTIONS[0].name,
+    // Chosen from the farm's vitamin catalog (vitamin_types) — nothing preselected.
+    vitaminName: "",
     vitaminType: "Liquid",
-    category: VITAMIN_NAME_OPTIONS[0].category,
+    category: null,
     brand: null,
     batchNumber: null,
     supplier: null,
@@ -90,21 +94,41 @@ export default function VitaminBatchFormDrawer({ batch, fixedFarmId, onClose, on
   // (e.g. edited after this list changed) — shown as its own extra option
   // rather than silently dropped, so editing never looks like it renamed
   // something the farmer didn't touch.
-  const nameMatchesOption = VITAMIN_NAME_OPTIONS.some((o) => o.name === input.vitaminName);
   const packageSizeMatchesOption = packageSizeOptions.includes(input.packageSize ?? "");
 
-  const handleNameChange = (value: string) => {
-    const option = VITAMIN_NAME_OPTIONS.find((o) => o.name === value);
-    if (option) setInput((prev) => ({ ...prev, vitaminName: option.name, category: option.category }));
+  /** A catalog vitamin sets name, category and form, and pre-fills its default unit/package size (both still editable for this purchase). */
+  const handleTypeChange = (t: VitaminTypeItem) => {
+    const sizes = VITAMIN_PACKAGE_SIZES_BY_UNIT[t.defaultUnit] ?? [];
+    setInput((prev) => ({
+      ...prev,
+      vitaminName: t.name,
+      category: t.category,
+      vitaminType: t.productForm,
+      unit: t.defaultUnit,
+      // Only a size that fits the unit (ml for bottles, g for packs) — otherwise the user picks one.
+      packageSize: t.packageSize && sizes.includes(t.packageSize) ? t.packageSize : (sizes[0] ?? null),
+    }));
+    setError(null);
   };
 
+  /** Changing the unit keeps the package size only if it's valid for the new unit — otherwise it's cleared and must be re-chosen. */
   const handleUnitChange = (value: string) => {
     const sizes = VITAMIN_PACKAGE_SIZES_BY_UNIT[value as VitaminUnit] ?? [];
-    setInput((prev) => ({ ...prev, unit: value, packageSize: sizes[0] ?? null }));
+    setInput((prev) => ({ ...prev, unit: value, packageSize: prev.packageSize && sizes.includes(prev.packageSize) ? prev.packageSize : null }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!input.vitaminName.trim() || !input.category) {
+      setError("Select a vitamin from the catalog (or add a new vitamin type).");
+      return;
+    }
+    // New purchases need a package size that matches the unit. Editing an
+    // older batch may keep the size it was recorded with.
+    if (!isEdit && (!input.packageSize || !packageSizeOptions.includes(input.packageSize))) {
+      setError("Select a package size that matches the unit (ml for bottles, g for packs, tablets for boxes).");
+      return;
+    }
     if (input.quantity <= 0) {
       setError("Quantity must be greater than zero.");
       return;
@@ -181,23 +205,13 @@ export default function VitaminBatchFormDrawer({ batch, fixedFarmId, onClose, on
 
             <div className="flex flex-col gap-1.5">
               <label htmlFor="vitamin-name" className="text-sm font-medium text-[var(--color-foreground)]">Vitamin Name</label>
-              <select
-                id="vitamin-name"
-                value={input.vitaminName}
-                onChange={(e) => handleNameChange(e.target.value)}
-                className={inputClass}
-              >
-                {!nameMatchesOption && <option value={input.vitaminName}>{input.vitaminName}</option>}
-                {VITAMIN_NAME_OPTIONS.map((o) => (
-                  <option key={o.name} value={o.name}>{o.name}</option>
-                ))}
-              </select>
+              <VitaminTypeSelect id="vitamin-name" farmId={input.farmId} canManage value={input.vitaminName} onChange={handleTypeChange} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <span className="text-sm font-medium text-[var(--color-foreground)]">Category</span>
-                <div className={`${inputClass} bg-[var(--color-muted-bg)] text-[var(--color-muted)]`}>{input.category}</div>
+                <div className={`${inputClass} bg-[var(--color-muted-bg)] text-[var(--color-muted)]`}>{input.category ?? "—"}</div>
               </div>
               <div className="flex flex-col gap-1.5">
                 <span className="text-sm font-medium text-[var(--color-foreground)]">Use</span>
@@ -224,38 +238,36 @@ export default function VitaminBatchFormDrawer({ batch, fixedFarmId, onClose, on
                 />
                 {isEdit && (
                   <p className="text-xs text-[var(--color-muted)]">
-                    Already used: {(batch.quantity - batch.remainingStock).toLocaleString()} {batch.unit} — can't go below this.
+                    Already used: {(batch.quantity - batch.remainingStock).toLocaleString()}{" "}
+                    {formatUnitLabel(batch.unit, batch.quantity - batch.remainingStock)} — can't go below this.
                   </p>
                 )}
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="vitamin-unit" className="text-sm font-medium text-[var(--color-foreground)]">Unit</label>
-                <select
+                <MobileSelect
                   id="vitamin-unit"
                   value={input.unit}
-                  onChange={(e) => handleUnitChange(e.target.value)}
-                  className={inputClass}
-                >
-                  {VITAMIN_UNIT_OPTIONS.map((u) => (
-                    <option key={u.value} value={u.value}>{u.label}</option>
-                  ))}
-                </select>
+                  onChange={handleUnitChange}
+                  sheetTitle="Unit"
+                  options={VITAMIN_UNIT_OPTIONS.map((u) => ({ value: u.value, label: u.label }))}
+                />
               </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
               <label htmlFor="vitamin-package-size" className="text-sm font-medium text-[var(--color-foreground)]">Package Size</label>
-              <select
+              <MobileSelect
                 id="vitamin-package-size"
                 value={input.packageSize ?? ""}
-                onChange={(e) => setInput((prev) => ({ ...prev, packageSize: e.target.value || null }))}
-                className={inputClass}
-              >
-                {!packageSizeMatchesOption && input.packageSize && <option value={input.packageSize}>{input.packageSize}</option>}
-                {packageSizeOptions.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
+                placeholder="Select package size…"
+                onChange={(v) => setInput((prev) => ({ ...prev, packageSize: v || null }))}
+                sheetTitle="Package Size"
+                options={[
+                  ...(!packageSizeMatchesOption && input.packageSize ? [{ value: input.packageSize, label: input.packageSize }] : []),
+                  ...packageSizeOptions.map((s) => ({ value: s, label: s })),
+                ]}
+              />
             </div>
 
             {!isEdit && (

@@ -13,6 +13,7 @@ import { StaggerGroup, StaggerItem } from "@poultryhub/shared/components/motion/
 import type { EggProductionRecord } from "@poultryhub/shared/types/eggProduction";
 import { useAuth } from "@poultryhub/shared/context/AuthContext";
 import { getErrorMessage } from "@poultryhub/shared/lib/errorMessage";
+import { useRecordHighlight } from "@poultryhub/shared/hooks/useRecordHighlight";
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
@@ -49,6 +50,10 @@ export default function StaffEggProductionPage() {
 
   const myRecords = useMemo(() => records.filter((r) => r.recordedById === user?.id), [records, user?.id]);
   const { dailyTotal, weeklyTotal, monthlyTotal } = summarizePeriods(myRecords);
+  const highlightedId = useRecordHighlight(
+    useMemo(() => myRecords.map((r) => r.id), [myRecords]),
+    !isLoading && !loadError
+  );
 
   if (!user?.farmId) {
     return (
@@ -114,7 +119,13 @@ export default function StaffEggProductionPage() {
           ) : (
             <StaggerGroup className="flex flex-col gap-3">
               {myRecords.map((record) => (
-                <StaggerItem key={record.id} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+                <StaggerItem
+                  key={record.id}
+                  data-record-id={record.id}
+                  className={`rounded-2xl border bg-[var(--color-card)] p-4 transition-colors ${
+                    record.id === highlightedId ? "border-[var(--color-primary)] ring-2 ring-[var(--color-primary)]/30" : "border-[var(--color-border)]"
+                  }`}
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-[var(--color-foreground)]">
@@ -134,7 +145,7 @@ export default function StaffEggProductionPage() {
 
                   <p className="mt-2 text-xs text-[var(--color-muted)]">
                     Peewee {record.peeweeEggs} · Small {record.smallEggs} · Medium {record.mediumEggs} · Large {record.largeEggs} · X Large{" "}
-                    {record.xLargeEggs} · Jumbo {record.jumboEggs}
+                    {record.xLargeEggs} · Jumbo {record.jumboEggs} · Super Jumbo {record.superJumboEggs}
                   </p>
 
                   {record.status === "rejected" && record.reviewNotes && (

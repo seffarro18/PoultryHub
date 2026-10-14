@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
   AlertCircle,
-  CalendarDays,
-  Download,
   Egg,
   Eye,
   Loader2,
@@ -23,11 +21,10 @@ import {
   listExpenses,
   listSales,
   summarizeSaleItems,
-  totalEggsForSale,
   totalExpenses,
   totalSales,
 } from "@poultryhub/shared/services/salesExpensesService";
-import { downloadCsv } from "@poultryhub/shared/lib/exportCsv";
+import ReportLinksCard from "../components/reports/ReportLinksCard";
 import SaleFormDrawer from "../components/finance/SaleFormDrawer";
 import ExpenseFormDrawer from "../components/finance/ExpenseFormDrawer";
 import SaleDetailsModal from "@poultryhub/shared/components/finance/SaleDetailsModal";
@@ -127,89 +124,6 @@ export default function FarmSalesExpensesPage() {
     } finally {
       setBusyId(null);
     }
-  };
-
-  const handleExportSales = () =>
-    downloadCsv(
-      `sales-${today}.csv`,
-      sales.map((s) => ({
-        Date: s.saleDate,
-        Category: s.itemCategory,
-        Items: summarizeSaleItems(s),
-        "Total Eggs": totalEggsForSale(s),
-        Total: s.totalAmount,
-        Buyer: s.buyerName ?? "",
-        "Payment Status": s.paymentStatus,
-      }))
-    );
-
-  const handleExportExpenses = () =>
-    downloadCsv(
-      `expenses-${today}.csv`,
-      expenses.map((e) => ({
-        Date: e.expenseDate,
-        Category: e.category,
-        Description: e.description,
-        Amount: e.amount,
-        Vendor: e.vendor ?? "",
-        "Payment Method": e.paymentMethod ?? "",
-        Source: e.source === "inventory_purchase" ? "Inventory Purchase" : "Manual Expense",
-      }))
-    );
-
-  const handleExportFinancialSummary = () =>
-    downloadCsv(`financial-summary-${today}.csv`, [
-      { Metric: "Total Revenue", Amount: revenue },
-      { Metric: "Total Expenses", Amount: expenseTotal },
-      { Metric: "Net Profit", Amount: revenue - expenseTotal },
-    ]);
-
-  const combinedTransactionRows = (saleRows: SaleRecord[], expenseRows: ExpenseRecord[]) => [
-    ...saleRows.map((s) => ({
-      Type: "Sale",
-      Date: s.saleDate,
-      Category: s.itemCategory,
-      Description: s.description ?? "",
-      Amount: s.totalAmount,
-    })),
-    ...expenseRows.map((e) => ({
-      Type: "Expense",
-      Date: e.expenseDate,
-      Category: e.category,
-      Description: e.description,
-      Amount: e.amount,
-    })),
-  ];
-
-  const handleExportDaily = () =>
-    downloadCsv(
-      `daily-financial-report-${today}.csv`,
-      combinedTransactionRows(
-        sales.filter((s) => s.saleDate === today),
-        expenses.filter((e) => e.expenseDate === today)
-      )
-    );
-
-  const handleExportWeekly = () => {
-    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    downloadCsv(
-      `weekly-financial-report-${today}.csv`,
-      combinedTransactionRows(
-        sales.filter((s) => s.saleDate >= cutoff),
-        expenses.filter((e) => e.expenseDate >= cutoff)
-      )
-    );
-  };
-
-  const handleExportMonthly = () => {
-    const monthPrefix = today.slice(0, 7);
-    downloadCsv(
-      `monthly-financial-report-${monthPrefix}.csv`,
-      combinedTransactionRows(
-        sales.filter((s) => s.saleDate.slice(0, 7) === monthPrefix),
-        expenses.filter((e) => e.expenseDate.slice(0, 7) === monthPrefix)
-      )
-    );
   };
 
   if (user?.role === "Staff") {
@@ -427,32 +341,17 @@ export default function FarmSalesExpensesPage() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-4 print:hidden">
-        <h2 className="font-display text-sm font-semibold text-[var(--color-foreground)]">Reports</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" onClick={handleExportSales} className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]">
-            <Download size={13} /> Sales Report
-          </button>
-          <button type="button" onClick={handleExportExpenses} className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]">
-            <Download size={13} /> Expense Report
-          </button>
-          <button type="button" onClick={handleExportFinancialSummary} className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]">
-            <Download size={13} /> Financial Summary
-          </button>
-          <button type="button" onClick={handleExportDaily} className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]">
-            <CalendarDays size={13} /> Daily Financial Report
-          </button>
-          <button type="button" onClick={handleExportWeekly} className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]">
-            <CalendarDays size={13} /> Weekly Financial Report
-          </button>
-          <button type="button" onClick={handleExportMonthly} className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]">
-            <CalendarDays size={13} /> Monthly Financial Report
-          </button>
-          <button type="button" onClick={() => window.print()} className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]">
-            <Printer size={13} /> Print / Save as PDF
-          </button>
-        </div>
-      </div>
+      <ReportLinksCard
+        category="finance"
+        reports={[
+          { id: "sales", label: "Sales Report" },
+          { id: "expenses", label: "Expense Report" },
+          { id: "financial-summary", label: "Financial Summary" },
+          { id: "financial-daily", label: "Daily Financial Report" },
+          { id: "financial-weekly", label: "Weekly Financial Report" },
+          { id: "financial-monthly", label: "Monthly Financial Report" },
+        ]}
+      />
 
       {editingSale !== null && user.farmId && (
         <SaleFormDrawer

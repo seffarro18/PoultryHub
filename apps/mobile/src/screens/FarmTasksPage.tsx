@@ -6,7 +6,6 @@ import { deleteTask, listTasks } from "@poultryhub/shared/services/taskService";
 import { listFarmStaff, type StaffMember } from "@poultryhub/shared/services/staffService";
 import TaskFormDrawer from "../components/tasks/TaskFormDrawer";
 import TaskStatusBadge from "../components/tasks/TaskStatusBadge";
-import TaskPriorityBadge from "../components/tasks/TaskPriorityBadge";
 import Button from "@poultryhub/shared/components/ui/Button";
 import ConfirmDialog from "@poultryhub/shared/components/layout/ConfirmDialog";
 import { SkeletonCard } from "@poultryhub/shared/components/ui/Skeleton";
@@ -201,7 +200,6 @@ export default function FarmTasksPage() {
                     </div>
                     <div className="flex flex-col items-end gap-1.5">
                       <TaskStatusBadge status={task.status} overdue={overdue} />
-                      <TaskPriorityBadge priority={task.priority} />
                     </div>
                   </div>
 

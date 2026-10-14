@@ -3,6 +3,7 @@ import { Bird, Egg, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { currentStockByType, deleteInventoryEvent } from "@poultryhub/shared/services/poultryInventoryService";
 import PoultryEventFormDrawer from "./PoultryEventFormDrawer";
 import StatTile from "@poultryhub/shared/components/production/StatTile";
+import ProductionStatusBadge from "@poultryhub/shared/components/production/ProductionStatusBadge";
 import type { PoultryEvent, PoultryEventType } from "@poultryhub/shared/types/poultryInventory";
 import type { MortalityRecord } from "@poultryhub/shared/types/mortality";
 
@@ -30,8 +31,9 @@ export default function StaffPoultryStockPanel({ farmId, userId, events, mortali
   const [editingEvent, setEditingEvent] = useState<PoultryEvent | null | "new">(null);
 
   const stock = useMemo(() => currentStockByType(events, mortalityRecords), [events, mortalityRecords]);
-  const totalChickens = stock.Layer + stock.Chick + stock.Grower + stock.Breeder;
+  const totalChickens = stock.Layer + stock.Grower + stock.Breeder;
   const myEvents = useMemo(() => events.filter((e) => e.recordedById === userId), [events, userId]);
+  const myPendingCount = myEvents.filter((e) => e.reviewStatus === "pending").length;
 
   const handleDelete = async (event: PoultryEvent) => {
     if (!window.confirm("Delete this record? This can't be undone.")) return;
@@ -59,11 +61,17 @@ export default function StaffPoultryStockPanel({ farmId, userId, events, mortali
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatTile icon={Bird} label="Total Chickens" value={totalChickens} />
-        <StatTile icon={Egg} label="Layers" value={stock.Layer} />
-        <StatTile icon={Bird} label="Chicks" value={stock.Chick} />
+        <StatTile icon={Egg} label="Total Layers" value={stock.Layer} />
       </div>
+
+      {myPendingCount > 0 && (
+        <p className="rounded-xl border border-[var(--color-warning)]/40 bg-[var(--color-warning)]/5 px-4 py-3 text-sm text-[var(--color-foreground)]">
+          {myPendingCount} of your submission{myPendingCount === 1 ? " is" : "s are"} awaiting Farm Admin approval — not counted in
+          the totals above until approved.
+        </p>
+      )}
 
       <div>
         <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">My Records</h2>
@@ -73,7 +81,7 @@ export default function StaffPoultryStockPanel({ farmId, userId, events, mortali
             <div className="py-16 text-center text-sm text-[var(--color-muted)]">No records yet — add the first one.</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[860px] text-left text-sm">
+              <table className="w-full min-w-[960px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-muted)]">
                     <th className="px-4 py-3 font-medium">Date</th>
@@ -81,6 +89,7 @@ export default function StaffPoultryStockPanel({ farmId, userId, events, mortali
                     <th className="px-4 py-3 font-medium">Event</th>
                     <th className="px-4 py-3 font-medium">Quantity</th>
                     <th className="px-4 py-3 font-medium">From/To</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -97,8 +106,17 @@ export default function StaffPoultryStockPanel({ farmId, userId, events, mortali
                         {[event.fromHousePen, event.toHousePen].filter(Boolean).join(" → ") || "—"}
                       </td>
                       <td className="px-4 py-3">
+                        <ProductionStatusBadge status={event.reviewStatus} />
+                        {event.reviewStatus === "rejected" && event.reviewNotes && (
+                          <p className="mt-1 max-w-[200px] text-xs text-[var(--color-danger)]">{event.reviewNotes}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
                         {busyId === event.id ? (
                           <Loader2 size={15} className="spinner text-[var(--color-muted)]" />
+                        ) : event.reviewStatus === "approved" ? (
+                          // Approved = official stock; only a Farm Admin can change it now (RLS enforces this too).
+                          <span className="text-xs text-[var(--color-muted)]">—</span>
                         ) : (
                           <div className="flex items-center gap-1">
                             <button
@@ -137,6 +155,7 @@ export default function StaffPoultryStockPanel({ farmId, userId, events, mortali
           fixedFarmId={farmId}
           allowedEventTypes={ALLOWED_EVENT_TYPES}
           events={events}
+          submitsForReview
           onClose={() => setEditingEvent(null)}
           onSaved={() => {
             setEditingEvent(null);

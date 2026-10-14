@@ -21,6 +21,7 @@ import {
   getKpiCards,
   getMortalityRate,
   getRevenueExpenses,
+  hasFarmDataGap,
   type FarmDashboardData,
 } from "@poultryhub/shared/services/farmDashboardService";
 import { useAuth } from "@poultryhub/shared/context/AuthContext";
@@ -30,6 +31,7 @@ import { attentionModulePath } from "../lib/attentionRoutes";
 import type { AttentionItem } from "@poultryhub/shared/types/attention";
 import { getErrorMessage } from "@poultryhub/shared/lib/errorMessage";
 import MobileEggHeroCard from "../components/dashboard/MobileEggHeroCard";
+import RemainingEggsCard from "../components/dashboard/RemainingEggsCard";
 import MobileQuickActions, { type MobileQuickAction } from "../components/dashboard/MobileQuickActions";
 import {
   FARM_EGG_PRODUCTION_PATH,
@@ -163,6 +165,15 @@ export default function FarmDashboardPage() {
         </div>
       ) : (
         <>
+          {hasFarmDataGap(data) && (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/5 px-4 py-3">
+              <p className="text-sm text-[var(--color-danger)]">Some dashboard data couldn't be loaded.</p>
+              <Button variant="outline" size="sm" onClick={() => refresh(true)}>
+                Retry
+              </Button>
+            </div>
+          )}
+
           {/* Mobile (<768px) — hero card + quick actions, matching the dedicated mobile redesign. */}
           <div className="flex flex-col gap-6 md:hidden">
             <MobileEggHeroCard
@@ -170,6 +181,7 @@ export default function FarmDashboardPage() {
               weekly={getFarmOverview(data).weeklyEggProduction}
               monthly={getFarmOverview(data).monthlyEggProduction}
             />
+            {user?.farmId && <RemainingEggsCard farmId={user.farmId} total={getFarmOverview(data).remainingEggs} />}
             <MobileQuickActions actions={getQuickActions(user?.role)} />
           </div>
 
@@ -178,7 +190,13 @@ export default function FarmDashboardPage() {
             <StaggerGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {getKpiCards(data).map((kpi) => (
                 <StaggerItem key={kpi.id}>
-                  <KpiCard data={kpi} />
+                  {kpi.id === "remaining-eggs" && user?.farmId ? (
+                    <RemainingEggsCard farmId={user.farmId} total={getFarmOverview(data).remainingEggs}>
+                      <KpiCard data={{ ...kpi, caption: "Available for Sale · tap for sizes" }} />
+                    </RemainingEggsCard>
+                  ) : (
+                    <KpiCard data={kpi} />
+                  )}
                 </StaggerItem>
               ))}
             </StaggerGroup>
@@ -189,7 +207,7 @@ export default function FarmDashboardPage() {
             </FadeIn>
 
             <FadeIn delay={0.16} className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              <FarmFeedConsumptionChart data={getFeedConsumption(data)} />
+              <FarmFeedConsumptionChart data={getFeedConsumption(data)} unit={data.feedUnit ?? "sack"} />
               <FarmChickenPopulationChart data={getChickenPopulation(data)} />
               <FarmMortalityRateChart data={getMortalityRate(data)} />
             </FadeIn>

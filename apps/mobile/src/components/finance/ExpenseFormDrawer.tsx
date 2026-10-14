@@ -3,6 +3,7 @@ import { Loader2, X } from "lucide-react";
 import { createExpense, updateExpense } from "@poultryhub/shared/services/salesExpensesService";
 import { filterDecimalText, parseNumericText } from "@poultryhub/shared/lib/numericInput";
 import { EXPENSE_CATEGORIES, type ExpenseInput, type ExpenseRecord } from "@poultryhub/shared/types/salesExpenses";
+import MobileSelect from "../ui/MobileSelect";
 
 interface ExpenseFormDrawerProps {
   /** null = add mode */
@@ -110,16 +111,13 @@ export default function ExpenseFormDrawer({ expense, fixedFarmId, onClose, onSav
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="expense-category" className="text-sm font-medium text-[var(--color-foreground)]">Category</label>
-                <select
+                <MobileSelect
                   id="expense-category"
                   value={input.category}
-                  onChange={(e) => setInput((prev) => ({ ...prev, category: e.target.value as ExpenseInput["category"] }))}
-                  className={inputClass}
-                >
-                  {EXPENSE_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setInput((prev) => ({ ...prev, category: v as ExpenseInput["category"] }))}
+                  sheetTitle="Category"
+                  options={EXPENSE_CATEGORIES.map((c) => ({ value: c, label: c }))}
+                />
               </div>
             </div>
 

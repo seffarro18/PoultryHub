@@ -15,7 +15,6 @@ import { listFarmStaff, type StaffMember } from "@poultryhub/shared/services/sta
 import { supabase } from "@poultryhub/shared/services/supabaseClient";
 import PageBackButton from "../components/PageBackButton";
 import TaskStatusBadge from "../components/tasks/TaskStatusBadge";
-import TaskPriorityBadge from "../components/tasks/TaskPriorityBadge";
 import TaskCommentThread from "../components/tasks/TaskCommentThread";
 import TaskCommentComposer from "../components/tasks/TaskCommentComposer";
 import TaskFormDrawer from "../components/tasks/TaskFormDrawer";
@@ -206,7 +205,6 @@ export default function TaskDetailPage() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <TaskStatusBadge status={task.status} overdue={overdue} />
-            <TaskPriorityBadge priority={task.priority} />
           </div>
           {task.completedAt && (
             <span className="text-xs text-[var(--color-muted)]">Completed {new Date(task.completedAt).toLocaleString()}</span>
@@ -224,12 +222,11 @@ export default function TaskDetailPage() {
             <p className="uppercase tracking-wide text-[var(--color-muted)]">Assigned by</p>
             <p className="mt-0.5 font-medium text-[var(--color-foreground)]">{task.createdByName ?? "—"}</p>
           </div>
-          {task.housePen && (
-            <div>
-              <p className="uppercase tracking-wide text-[var(--color-muted)]">Poultry House/Pen</p>
-              <p className="mt-0.5 font-medium text-[var(--color-foreground)]">{task.housePen}</p>
-            </div>
-          )}
+          <div>
+            <p className="uppercase tracking-wide text-[var(--color-muted)]">Poultry House/Pen</p>
+            <p className="mt-0.5 font-medium text-[var(--color-foreground)]">{task.housePen ?? "Farm-wide (no specific house/pen)"}</p>
+            {task.housePen && !isFarmManager && <p className="mt-0.5 text-[11px] text-[var(--color-muted)]">Assigned by Farm Admin</p>}
+          </div>
           {task.scheduledStart && (
             <div>
               <p className="uppercase tracking-wide text-[var(--color-muted)]">Start</p>

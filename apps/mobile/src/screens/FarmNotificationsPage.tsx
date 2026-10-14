@@ -14,6 +14,7 @@ import { useToast } from "@poultryhub/shared/components/ui/ToastContext";
 import { resolveNotificationLink } from "@poultryhub/shared/lib/notificationNavigation";
 import NotificationCard from "@poultryhub/shared/components/notifications/NotificationCard";
 import SendNotificationDrawer from "../components/notifications/SendNotificationDrawer";
+import MobileSelect from "../components/ui/MobileSelect";
 import { FARM_ADMIN_CATEGORIES, NOTIFICATION_CATEGORY_META, type AppNotification, type NotificationCategory } from "@poultryhub/shared/types/notification";
 import { getErrorMessage } from "@poultryhub/shared/lib/errorMessage";
 
@@ -43,6 +44,7 @@ export default function FarmNotificationsPage() {
     try {
       setNotifications(await listNotifications());
     } catch (err) {
+      console.error("[FarmNotificationsPage] load failed:", err);
       setLoadError(getErrorMessage(err, "Failed to load notifications."));
     } finally {
       setIsLoading(false);
@@ -81,6 +83,7 @@ export default function FarmNotificationsPage() {
       void refreshBadge();
     } catch (err) {
       console.error("[FarmNotificationsPage] mark as read failed:", err);
+      toast.error(getErrorMessage(err, "Couldn't mark this notification as read."));
     } finally {
       setBusyId(null);
     }
@@ -101,6 +104,7 @@ export default function FarmNotificationsPage() {
       void refreshBadge();
     } catch (err) {
       console.error("[FarmNotificationsPage] archive failed:", err);
+      toast.error(getErrorMessage(err, "Couldn't archive this notification."));
     } finally {
       setBusyId(null);
     }
@@ -115,6 +119,7 @@ export default function FarmNotificationsPage() {
       void refreshBadge();
     } catch (err) {
       console.error("[FarmNotificationsPage] delete failed:", err);
+      toast.error(getErrorMessage(err, "Couldn't delete this notification."));
     } finally {
       setBusyId(null);
     }
@@ -127,6 +132,7 @@ export default function FarmNotificationsPage() {
       void refreshBadge();
     } catch (err) {
       console.error("[FarmNotificationsPage] mark all as read failed:", err);
+      toast.error(getErrorMessage(err, "Couldn't mark notifications as read."));
     }
   };
 
@@ -193,18 +199,17 @@ export default function FarmNotificationsPage() {
           ))}
         </div>
 
-        <select
+        <MobileSelect
           value={category}
-          onChange={(e) => setCategory(e.target.value as NotificationCategory | "all")}
-          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)]"
-        >
-          <option value="all">All Types</option>
-          {FARM_ADMIN_CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {NOTIFICATION_CATEGORY_META[c].label}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => setCategory(v as NotificationCategory | "all")}
+          sheetTitle="Filter by Type"
+          className="bg-[var(--color-card)] sm:w-auto"
+          searchable={FARM_ADMIN_CATEGORIES.length > 6}
+          options={[
+            { value: "all", label: "All Types" },
+            ...FARM_ADMIN_CATEGORIES.map((c) => ({ value: c, label: NOTIFICATION_CATEGORY_META[c].label })),
+          ]}
+        />
       </div>
 
       <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)]">
@@ -216,6 +221,13 @@ export default function FarmNotificationsPage() {
           <div className="flex flex-col items-center gap-2 py-16 text-center">
             <AlertCircle size={20} className="text-[var(--color-danger)]" />
             <p className="text-sm text-[var(--color-foreground)]">{loadError}</p>
+            <button
+              type="button"
+              onClick={() => void refresh()}
+              className="mt-1 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]"
+            >
+              Retry
+            </button>
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-16 text-center text-[var(--color-muted)]">

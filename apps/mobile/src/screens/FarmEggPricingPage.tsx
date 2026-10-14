@@ -10,7 +10,9 @@ import { StaggerGroup, StaggerItem } from "@poultryhub/shared/components/motion/
 import EmptyState from "@poultryhub/shared/components/ui/EmptyState";
 import ErrorState from "@poultryhub/shared/components/ui/ErrorState";
 import { useToast } from "@poultryhub/shared/components/ui/ToastContext";
-import type { EggPrice, EggPriceHistoryEntry } from "@poultryhub/shared/types/eggPricing";
+import { EGG_UNIT_LABEL, type EggPrice, type EggPriceHistoryEntry } from "@poultryhub/shared/types/eggPricing";
+
+const peso = (v: number) => `₱${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 import { useAuth } from "@poultryhub/shared/context/AuthContext";
 import { getErrorMessage } from "@poultryhub/shared/lib/errorMessage";
 
@@ -85,7 +87,7 @@ export default function FarmEggPricingPage() {
             <PageBackButton />
             <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">Egg Pricing</h1>
           </div>
-          <p className="mt-1 text-sm text-[var(--color-muted)]">Manage current egg selling prices.</p>
+          <p className="mt-1 text-sm text-[var(--color-muted)]">Selling prices per egg size — full tray, half tray and per piece. Changes apply to future sales only.</p>
         </div>
         {!isLoading && !loadError && (
           <Button variant="primary" size="sm" icon={Pencil} onClick={() => setEditing(true)}>
@@ -109,15 +111,23 @@ export default function FarmEggPricingPage() {
           {prices.map((price) => (
             <StaggerItem key={price.eggSize} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
               <p className="text-sm font-semibold text-[var(--color-foreground)]">{price.eggSize}</p>
-              <div className="mt-2 grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-[var(--color-muted)]">Full Tray</p>
-                  <p className="text-sm font-semibold text-[var(--color-foreground)]">₱{price.fullTrayPrice.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-[var(--color-muted)]">Half Tray</p>
-                  <p className="text-sm font-semibold text-[var(--color-foreground)]">₱{price.halfTrayPrice.toLocaleString()}</p>
-                </div>
+              <div className="mt-2 grid grid-cols-3 gap-3">
+                {(
+                  [
+                    ["Full Tray", price.fullTrayPrice],
+                    ["Half Tray", price.halfTrayPrice],
+                    ["Per Piece", price.piecePrice],
+                  ] as const
+                ).map(([label, value]) => (
+                  <div key={label}>
+                    <p className="text-[10px] uppercase tracking-wide text-[var(--color-muted)]">{label}</p>
+                    {value === null ? (
+                      <p className="text-sm font-medium text-[var(--color-warning)]">Not set</p>
+                    ) : (
+                      <p className="text-sm font-semibold text-[var(--color-foreground)]">{peso(value)}</p>
+                    )}
+                  </div>
+                ))}
               </div>
               <p className="mt-2 text-xs text-[var(--color-muted)]">
                 Last Updated {new Date(price.updatedAt).toLocaleDateString()}
@@ -141,12 +151,12 @@ export default function FarmEggPricingPage() {
                 <StaggerItem key={entry.id} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-3">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-semibold text-[var(--color-foreground)]">
-                      {entry.eggSize} — {entry.unitType === "full_tray" ? "Full Tray" : "Half Tray"}
+                      {entry.eggSize} — {entry.unitType === "piece" ? "Per Piece" : EGG_UNIT_LABEL[entry.unitType]}
                     </p>
-                    <p className="text-xs text-[var(--color-muted)]">{new Date(entry.createdAt).toLocaleDateString()}</p>
+                    <p className="text-xs text-[var(--color-muted)]">{new Date(entry.createdAt).toLocaleString()}</p>
                   </div>
                   <p className="mt-1 text-xs text-[var(--color-muted)]">
-                    ₱{entry.previousPrice.toLocaleString()} → ₱{entry.newPrice.toLocaleString()}
+                    {entry.previousPrice === null ? "Not set" : peso(entry.previousPrice)} → {peso(entry.newPrice)}
                     {entry.updatedByName ? ` · Updated by ${entry.updatedByName}` : ""}
                   </p>
                 </StaggerItem>

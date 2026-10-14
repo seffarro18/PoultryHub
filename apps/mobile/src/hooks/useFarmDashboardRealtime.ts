@@ -15,6 +15,8 @@ const FARM_SCOPED_TABLES = [
   "mortality_records",
   "poultry_inventory_events",
   "feed_distribution",
+  // Feed Consumption Unit — switching it re-renders every feed figure (0055 adds it to the Realtime publication).
+  "production_settings",
 ] as const;
 
 /** Staff's dashboard never reads sales/expenses (no RLS access, no UI for them either) — subscribing to those tables would just be a no-op channel binding, so they're left out entirely rather than relying on RLS to silently drop the payload. */

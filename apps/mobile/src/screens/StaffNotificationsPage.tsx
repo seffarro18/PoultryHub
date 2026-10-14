@@ -23,6 +23,7 @@ export default function StaffNotificationsPage() {
     try {
       setNotifications(await listNotifications());
     } catch (err) {
+      console.error("[StaffNotificationsPage] load failed:", err);
       setLoadError(getErrorMessage(err, "Failed to load notifications."));
     } finally {
       setIsLoading(false);
@@ -72,6 +73,13 @@ export default function StaffNotificationsPage() {
           <div className="flex flex-col items-center gap-2 py-16 text-center">
             <AlertCircle size={20} className="text-[var(--color-danger)]" />
             <p className="text-sm text-[var(--color-foreground)]">{loadError}</p>
+            <button
+              type="button"
+              onClick={() => void refresh()}
+              className="mt-1 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-muted-bg)]"
+            >
+              Retry
+            </button>
           </div>
         ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-16 text-center text-[var(--color-muted)]">

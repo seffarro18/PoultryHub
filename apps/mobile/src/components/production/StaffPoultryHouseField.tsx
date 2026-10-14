@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { listPoultryHouses } from "@poultryhub/shared/services/poultryHouseService";
 import type { PoultryHouse } from "@poultryhub/shared/types/poultryHouse";
 
@@ -101,37 +101,32 @@ export default function StaffPoultryHouseField({ id, farmId, assignedPoultryHous
   }
 
   // State B — houses exist, but this Staff member isn't assigned to one.
+  // A plain static field, not a dropdown — there's nothing to pick from, so
+  // no chevron/tap affordance (section 11: restricted fields must never
+  // look interactive when they aren't).
   if (!assignedHouse) {
     return (
       <div className="flex flex-col gap-1.5">
-        <div className="relative">
-          <select
-            id={id}
-            disabled
-            value=""
-            className="w-full appearance-none rounded-lg border border-[var(--color-border)] bg-[var(--color-muted-bg)] px-3 py-2 pr-9 text-sm text-[var(--color-muted)] outline-none disabled:opacity-70"
-          >
-            <option value="">No Poultry House / Pen assigned</option>
-          </select>
-          <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
+        <div
+          id={id}
+          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-muted-bg)] px-3 py-2.5 text-sm text-[var(--color-muted)]"
+        >
+          No Poultry House / Pen assigned
         </div>
         <p className="text-xs text-[var(--color-muted)]">Please ask your Farm Admin to assign you to a Poultry House / Pen.</p>
       </div>
     );
   }
 
-  // State C — assigned. A real dropdown; the one valid option is already selected.
+  // State C — assigned. Displays the assignment; never a real choice, so
+  // likewise a plain static field rather than a (misleadingly interactive)
+  // dropdown with only one option.
   return (
-    <div className="relative">
-      <select
-        id={id}
-        value={assignedHouse.id}
-        onChange={() => onChange(assignedHouse)}
-        className="w-full appearance-none rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 pr-9 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)]"
-      >
-        <option value={assignedHouse.id}>{assignedHouse.name}</option>
-      </select>
-      <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
+    <div
+      id={id}
+      className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2.5 text-sm text-[var(--color-foreground)]"
+    >
+      {assignedHouse.name}
     </div>
   );
 }

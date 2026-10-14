@@ -6,7 +6,10 @@ import Button from "@poultryhub/shared/components/ui/Button";
 import { useToast } from "@poultryhub/shared/components/ui/ToastContext";
 import { useEscapeKey } from "@poultryhub/shared/hooks/useEscapeKey";
 import type { StaffMember } from "@poultryhub/shared/services/staffService";
-import { TASK_PRIORITY_LABEL, type Task, type TaskInput, type TaskPriority } from "@poultryhub/shared/types/task";
+import { getErrorMessage } from "@poultryhub/shared/lib/errorMessage";
+import type { Task, TaskInput } from "@poultryhub/shared/types/task";
+import MobileSelect from "../ui/MobileSelect";
+import PoultryHouseSelect from "../production/PoultryHouseSelect";
 
 interface TaskFormDrawerProps {
   /** null = create mode */
@@ -36,8 +39,7 @@ function toInputState(task: Task | null, fixedFarmId: string): TaskInput {
       title: task.title,
       description: task.description,
       assignedToId: task.assignedToId,
-      priority: task.priority,
-      housePen: task.housePen,
+      houseId: task.houseId,
       scheduledStart: task.scheduledStart,
       scheduledEnd: task.scheduledEnd,
     };
@@ -47,14 +49,11 @@ function toInputState(task: Task | null, fixedFarmId: string): TaskInput {
     title: "",
     description: null,
     assignedToId: "",
-    priority: "medium",
-    housePen: null,
+    houseId: null,
     scheduledStart: null,
     scheduledEnd: null,
   };
 }
-
-const PRIORITY_OPTIONS: TaskPriority[] = ["low", "medium", "high"];
 
 export default function TaskFormDrawer({ task, staff, fixedFarmId, onClose, onSaved }: TaskFormDrawerProps) {
   const isEdit = task !== null;
@@ -66,6 +65,22 @@ export default function TaskFormDrawer({ task, staff, fixedFarmId, onClose, onSa
 
   useEscapeKey(onClose);
 
+  const assignee = staff.find((s) => s.id === input.assignedToId) ?? null;
+  // Same rule the database enforces (sync_task_house, 0047): a Staff member
+  // with an assigned house/pen can only be given tasks for that house/pen.
+  const houseMismatch = Boolean(assignee?.assignedPoultryHouseId && input.houseId && input.houseId !== assignee.assignedPoultryHouseId);
+
+  const handleAssigneeChange = (staffId: string) => {
+    const next = staff.find((s) => s.id === staffId);
+    setInput((prev) => ({
+      ...prev,
+      assignedToId: staffId,
+      // Pre-select the Staff member's own house/pen when nothing is chosen yet.
+      houseId: prev.houseId ?? next?.assignedPoultryHouseId ?? null,
+    }));
+    setError(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.title.trim()) {
@@ -74,6 +89,10 @@ export default function TaskFormDrawer({ task, staff, fixedFarmId, onClose, onSa
     }
     if (!input.assignedToId) {
       setError("Select a staff member to assign this to.");
+      return;
+    }
+    if (houseMismatch) {
+      setError(`${assignee?.name ?? "This staff member"} is assigned to ${assignee?.assignedHousePen ?? "a different house/pen"}. Choose that house/pen, or change their assignment in Staff Management first.`);
       return;
     }
     setSaving(true);
@@ -88,7 +107,7 @@ export default function TaskFormDrawer({ task, staff, fixedFarmId, onClose, onSa
       onSaved();
     } catch (err) {
       console.error("[TaskFormDrawer] save failed:", err);
-      setError("Couldn't save this task. Please try again.");
+      setError(getErrorMessage(err, "Couldn't save this task. Please try again."));
       toast.error("Couldn't save this task.");
     } finally {
       setSaving(false);
@@ -148,51 +167,45 @@ export default function TaskFormDrawer({ task, staff, fixedFarmId, onClose, onSa
               <label htmlFor="task-assignee" className="text-sm font-medium text-[var(--color-foreground)]">
                 Assign to
               </label>
-              <select
+              <MobileSelect
                 id="task-assignee"
                 value={input.assignedToId}
-                onChange={(e) => setInput((prev) => ({ ...prev, assignedToId: e.target.value }))}
-                className="rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)]"
-              >
-                <option value="">Select staff…</option>
-                {staff.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+                onChange={handleAssigneeChange}
+                placeholder="Select staff…"
+                sheetTitle="Assign to"
+                searchable={staff.length > 6}
+                searchPlaceholder="Search staff…"
+                options={staff.map((s) => ({ value: s.id, label: s.name }))}
+              />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="task-house-pen" className="text-sm font-medium text-[var(--color-foreground)]">
-                  Poultry House/Pen
-                </label>
-                <input
-                  id="task-house-pen"
-                  value={input.housePen ?? ""}
-                  onChange={(e) => setInput((prev) => ({ ...prev, housePen: e.target.value || null }))}
-                  placeholder="e.g. House 1 (optional)"
-                  className="rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted)] focus-visible:border-[var(--color-primary)]"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="task-priority" className="text-sm font-medium text-[var(--color-foreground)]">
-                  Priority
-                </label>
-                <select
-                  id="task-priority"
-                  value={input.priority}
-                  onChange={(e) => setInput((prev) => ({ ...prev, priority: e.target.value as TaskPriority }))}
-                  className="rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)]"
-                >
-                  {PRIORITY_OPTIONS.map((p) => (
-                    <option key={p} value={p}>
-                      {TASK_PRIORITY_LABEL[p]}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="task-house-pen" className="text-sm font-medium text-[var(--color-foreground)]">
+                Poultry House/Pen
+              </label>
+              {/* The farm's real houses/pens (poultry_houses) — no free text.
+                  "Unassigned" keeps farm-wide tasks possible; Farm Admin/Manager
+                  can register a new house/pen inline. */}
+              <PoultryHouseSelect
+                id="task-house-pen"
+                farmId={input.farmId}
+                value={input.houseId ?? ""}
+                canManage
+                allowUnassigned
+                onChange={(house) => {
+                  setInput((prev) => ({ ...prev, houseId: house?.id ?? null }));
+                  setError(null);
+                }}
+              />
+              {task && !task.houseId && task.housePen && (
+                <p className="text-xs text-[var(--color-muted)]">Previously entered as “{task.housePen}” — choose a registered house/pen to link it.</p>
+              )}
+              {assignee?.assignedPoultryHouseId && (
+                <p className={`text-xs ${houseMismatch ? "text-[var(--color-danger)]" : "text-[var(--color-muted)]"}`}>
+                  {assignee.name} is assigned to {assignee.assignedHousePen ?? "a house/pen"}
+                  {houseMismatch ? " — tasks for this staff member must use that house/pen." : "."}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -241,7 +254,7 @@ export default function TaskFormDrawer({ task, staff, fixedFarmId, onClose, onSa
             <Button variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" loading={saving} loadingText={isEdit ? "Saving…" : "Creating…"}>
+            <Button type="submit" variant="primary" loading={saving} disabled={houseMismatch} loadingText={isEdit ? "Saving…" : "Creating…"}>
               {isEdit ? "Save changes" : "Create task"}
             </Button>
           </div>

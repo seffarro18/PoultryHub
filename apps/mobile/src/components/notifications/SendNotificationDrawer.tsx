@@ -4,6 +4,7 @@ import { listFarmStaff, type StaffMember } from "@poultryhub/shared/services/sta
 import { sendNotificationToStaff } from "@poultryhub/shared/services/notificationService";
 import { listNotificationTemplates } from "@poultryhub/shared/services/emailSettingsService";
 import { NOTIFICATION_CATEGORY_META, STAFF_SENDABLE_CATEGORIES, type NotificationCategory } from "@poultryhub/shared/types/notification";
+import MobileSelect from "../ui/MobileSelect";
 
 interface SendNotificationDrawerProps {
   fixedFarmId: string;
@@ -106,37 +107,32 @@ export default function SendNotificationDrawer({ fixedFarmId, onClose, onSent }:
                 <label htmlFor="recipient" className="text-sm font-medium text-[var(--color-foreground)]">
                   Recipient
                 </label>
-                <select
+                <MobileSelect
                   id="recipient"
                   value={recipient}
-                  onChange={(e) => setRecipient(e.target.value)}
-                  className="rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)]"
-                >
-                  <option value={ALL_STAFF}>All Staff ({staff.length})</option>
-                  {staff.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setRecipient}
+                  sheetTitle="Recipient"
+                  searchable={staff.length > 6}
+                  searchPlaceholder="Search staff…"
+                  options={[
+                    { value: ALL_STAFF, label: `All Staff (${staff.length})` },
+                    ...staff.map((s) => ({ value: s.id, label: s.name })),
+                  ]}
+                />
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="category" className="text-sm font-medium text-[var(--color-foreground)]">
                   Type
                 </label>
-                <select
+                <MobileSelect
                   id="category"
                   value={category}
-                  onChange={(e) => handleCategoryChange(e.target.value as NotificationCategory)}
-                  className="rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)]"
-                >
-                  {STAFF_SENDABLE_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {NOTIFICATION_CATEGORY_META[c].label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => handleCategoryChange(v as NotificationCategory)}
+                  sheetTitle="Type"
+                  searchable={STAFF_SENDABLE_CATEGORIES.length > 6}
+                  options={STAFF_SENDABLE_CATEGORIES.map((c) => ({ value: c, label: NOTIFICATION_CATEGORY_META[c].label }))}
+                />
               </div>
             </div>
 

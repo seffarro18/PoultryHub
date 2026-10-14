@@ -5,6 +5,7 @@ import { countPendingApprovals } from "@poultryhub/shared/services/farmDashboard
 import { downloadCsv } from "@poultryhub/shared/lib/exportCsv";
 import SeverityBadge from "@poultryhub/shared/components/audit/SeverityBadge";
 import PageBackButton from "../components/PageBackButton";
+import MobileSelect from "../components/ui/MobileSelect";
 import StatTile from "@poultryhub/shared/components/production/StatTile";
 import { useAuth } from "@poultryhub/shared/context/AuthContext";
 import { formatAuditAction, type AuditLogEntry } from "@poultryhub/shared/types/auditLog";
@@ -155,23 +156,33 @@ export default function FarmAuditLogsPage() {
 
         <div className="mt-3 flex flex-wrap items-center gap-2 print:hidden">
           <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className={selectClass} aria-label="Date" />
-          <select value={staffFilter} onChange={(e) => setStaffFilter(e.target.value)} className={selectClass}>
-            <option value={ALL}>All Staff</option>
-            {staffNames.map((n) => (
-              <option key={n} value={n}>{n}</option>
-            ))}
-          </select>
-          <select value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)} className={selectClass}>
-            <option value={ALL}>All Modules</option>
-            {modules.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectClass}>
-            <option value={ALL}>All Statuses</option>
-            <option value="success">Success</option>
-            <option value="failure">Failure</option>
-          </select>
+          <MobileSelect
+            value={staffFilter}
+            onChange={setStaffFilter}
+            sheetTitle="Filter by Staff"
+            className="!w-auto"
+            searchable={staffNames.length > 6}
+            options={[{ value: ALL, label: "All Staff" }, ...staffNames.map((n) => ({ value: n, label: n }))]}
+          />
+          <MobileSelect
+            value={moduleFilter}
+            onChange={setModuleFilter}
+            sheetTitle="Filter by Module"
+            className="!w-auto"
+            searchable={modules.length > 6}
+            options={[{ value: ALL, label: "All Modules" }, ...modules.map((m) => ({ value: m, label: m }))]}
+          />
+          <MobileSelect
+            value={statusFilter}
+            onChange={setStatusFilter}
+            sheetTitle="Filter by Status"
+            className="!w-auto"
+            options={[
+              { value: ALL, label: "All Statuses" },
+              { value: "success", label: "Success" },
+              { value: "failure", label: "Failure" },
+            ]}
+          />
         </div>
 
         {isLoading ? (

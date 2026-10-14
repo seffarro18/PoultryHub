@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import Button from "@poultryhub/shared/components/ui/Button";
 import { useEscapeKey } from "@poultryhub/shared/hooks/useEscapeKey";
 import { TASK_PROBLEM_CATEGORY_LABEL, type TaskProblemCategory } from "@poultryhub/shared/types/task";
+import MobileSelect from "../ui/MobileSelect";
 
 interface ReportProblemDialogProps {
   onCancel: () => void;
@@ -50,18 +51,13 @@ export default function ReportProblemDialog({ onCancel, onConfirm, confirming = 
           <label htmlFor="problem-category" className="text-sm font-medium text-[var(--color-foreground)]">
             Category
           </label>
-          <select
+          <MobileSelect
             id="problem-category"
             value={category}
-            onChange={(e) => setCategory(e.target.value as TaskProblemCategory)}
-            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)]"
-          >
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {TASK_PROBLEM_CATEGORY_LABEL[c]}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setCategory(v as TaskProblemCategory)}
+            sheetTitle="Category"
+            options={CATEGORIES.map((c) => ({ value: c, label: TASK_PROBLEM_CATEGORY_LABEL[c] }))}
+          />
         </div>
 
         <label htmlFor="problem-comment" className="sr-only">

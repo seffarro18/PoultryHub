@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AlertCircle, ChevronRight, History } from "lucide-react";
 import { Link } from "react-router-dom";
 import KpiCard from "@poultryhub/shared/components/dashboard/KpiCard";
+import RemainingEggsCard from "../components/dashboard/RemainingEggsCard";
 import NeedsAttentionSection from "@poultryhub/shared/components/dashboard/attention/NeedsAttentionSection";
 import Button from "@poultryhub/shared/components/ui/Button";
 import { Skeleton, SkeletonCard } from "@poultryhub/shared/components/ui/Skeleton";
@@ -156,7 +157,7 @@ export default function StaffDashboardPage() {
         <>
           {hasStaffDataGap(data) && (
             <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/5 px-4 py-3">
-              <p className="text-sm text-[var(--color-danger)]">Some stock data couldn't be loaded.</p>
+              <p className="text-sm text-[var(--color-danger)]">Some dashboard data couldn't be loaded.</p>
               <Button variant="outline" size="sm" onClick={() => refresh(true)}>
                 Retry
               </Button>
@@ -170,6 +171,7 @@ export default function StaffDashboardPage() {
               weekly={getStaffOverview(data).weeklyEggProduction}
               monthly={getStaffOverview(data).monthlyEggProduction}
             />
+            {user?.farmId && <RemainingEggsCard farmId={user.farmId} total={getStaffOverview(data).remainingEggs} />}
             <MobileQuickActions actions={STAFF_QUICK_ACTIONS} />
           </div>
 
@@ -178,7 +180,13 @@ export default function StaffDashboardPage() {
             <StaggerGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {getStaffKpiCards(data).map((kpi) => (
                 <StaggerItem key={kpi.id}>
-                  <KpiCard data={kpi} />
+                  {kpi.id === "remaining-eggs" && user?.farmId ? (
+                    <RemainingEggsCard farmId={user.farmId} total={getStaffOverview(data).remainingEggs}>
+                      <KpiCard data={{ ...kpi, caption: "Operational Egg Inventory · tap for sizes" }} />
+                    </RemainingEggsCard>
+                  ) : (
+                    <KpiCard data={kpi} />
+                  )}
                 </StaggerItem>
               ))}
             </StaggerGroup>

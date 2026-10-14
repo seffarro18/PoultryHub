@@ -7,6 +7,7 @@ import { listMortalityRecords } from "@poultryhub/shared/services/mortalityRecor
 import StaffPoultryStockPanel from "../components/inventory/StaffPoultryStockPanel";
 import StaffFeedsVitaminsPanel from "../components/inventory/StaffFeedsVitaminsPanel";
 import StaffMortalityPanel from "../components/inventory/StaffMortalityPanel";
+import ReportLinksCard from "../components/reports/ReportLinksCard";
 import { useAuth } from "@poultryhub/shared/context/AuthContext";
 import type { PoultryEvent } from "@poultryhub/shared/types/poultryInventory";
 import type { FeedBatch, FeedDistributionRecord, VitaminAdministrationRecord, VitaminBatch } from "@poultryhub/shared/types/feedVitamin";
@@ -150,6 +151,15 @@ export default function StaffPoultryInventoryPage() {
           )}
         </>
       )}
+
+      <ReportLinksCard
+        reports={[
+          { id: "poultry-stock", label: "Poultry Stock Report" },
+          { id: "egg-production", label: "Egg Production Report" },
+          { id: "feed-daily", label: "Daily Feed Consumption" },
+          { id: "vitamin-usage", label: "Vitamin Usage Report" },
+        ]}
+      />
     </div>
   );
 }

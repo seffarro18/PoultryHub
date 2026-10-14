@@ -1,9 +1,20 @@
 import { useMemo, useState } from "react";
-import { Bird, Egg, Loader2, Pencil, Plus, Search, Trash2, TrendingDown, UserPlus } from "lucide-react";
-import { currentStockByType, deleteInventoryEvent, setStaffCanDeleteInventory } from "@poultryhub/shared/services/poultryInventoryService";
+import { AnimatePresence } from "framer-motion";
+import { Bird, Check, ClipboardCheck, Egg, Loader2, Pencil, Plus, Search, Trash2, TrendingDown, UserPlus, X } from "lucide-react";
+import {
+  currentStockByType,
+  deleteInventoryEvent,
+  reviewInventoryEvent,
+  setStaffCanDeleteInventory,
+} from "@poultryhub/shared/services/poultryInventoryService";
 import PoultryEventFormDrawer from "./PoultryEventFormDrawer";
+import RejectRecordDialog from "../production/RejectRecordDialog";
+import MobileSelect from "../ui/MobileSelect";
 import PoultryStockBreakdownChart from "@poultryhub/shared/components/inventory/PoultryStockBreakdownChart";
+import ProductionStatusBadge from "@poultryhub/shared/components/production/ProductionStatusBadge";
 import StatTile from "@poultryhub/shared/components/production/StatTile";
+import { useToast } from "@poultryhub/shared/components/ui/ToastContext";
+import { getErrorMessage } from "@poultryhub/shared/lib/errorMessage";
 import { BIRD_TYPES, type BirdType, type PoultryEvent, type PoultryEventType } from "@poultryhub/shared/types/poultryInventory";
 import type { MortalityRecord } from "@poultryhub/shared/types/mortality";
 
@@ -46,9 +57,12 @@ export default function PoultryStockPanel({
   const [typeFilter, setTypeFilter] = useState<BirdType | "All">("All");
   const [editingEvent, setEditingEvent] = useState<PoultryEvent | null | "new">(null);
   const [togglingPermission, setTogglingPermission] = useState(false);
+  const [rejectingEvent, setRejectingEvent] = useState<PoultryEvent | null>(null);
+  const toast = useToast();
 
   const stock = useMemo(() => currentStockByType(events, mortalityRecords), [events, mortalityRecords]);
-  const totalChickens = stock.Layer + stock.Chick + stock.Grower + stock.Breeder;
+  const totalChickens = stock.Layer + stock.Grower + stock.Breeder;
+  const pendingEvents = useMemo(() => events.filter((e) => e.reviewStatus === "pending"), [events]);
 
   const { monthlyMortality, monthlyArrivals } = useMemo(() => {
     const today = new Date();
@@ -58,7 +72,9 @@ export default function PoultryStockPanel({
       if (record.status === "approved" && isThisMonth(record.recordDate, today)) mortality += record.deadBirds;
     }
     for (const event of events) {
-      if (event.eventType === "arrival" && isThisMonth(event.eventDate, today)) arrivals += event.quantity;
+      if (event.reviewStatus === "approved" && event.eventType === "arrival" && isThisMonth(event.eventDate, today)) {
+        arrivals += event.quantity;
+      }
     }
     return { monthlyMortality: mortality, monthlyArrivals: arrivals };
   }, [events, mortalityRecords]);
@@ -92,6 +108,40 @@ export default function PoultryStockPanel({
     }
   };
 
+  const handleApprove = async (event: PoultryEvent) => {
+    setBusyId(event.id);
+    try {
+      await reviewInventoryEvent(event.id, true);
+      toast.success(`${EVENT_TYPE_LABELS[event.eventType]} of ${event.quantity.toLocaleString()} approved — now part of official stock.`);
+      await refresh();
+    } catch (err) {
+      console.error("[PoultryStockPanel] approve failed:", err);
+      toast.error(getErrorMessage(err, "Couldn't approve this record."));
+      await refresh();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleReject = async (reason: string) => {
+    if (!rejectingEvent) return;
+    const event = rejectingEvent;
+    setBusyId(event.id);
+    try {
+      await reviewInventoryEvent(event.id, false, reason);
+      toast.success("Record rejected — official stock unchanged.");
+      setRejectingEvent(null);
+      await refresh();
+    } catch (err) {
+      console.error("[PoultryStockPanel] reject failed:", err);
+      toast.error(getErrorMessage(err, "Couldn't reject this record."));
+      setRejectingEvent(null);
+      await refresh();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const handleToggleStaffPermission = async () => {
     const next = !staffCanDelete;
     setTogglingPermission(true);
@@ -118,13 +168,72 @@ export default function PoultryStockPanel({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile icon={Bird} label="Total Chickens" value={totalChickens} />
         <StatTile icon={Egg} label="Active Layers" value={stock.Layer} />
-        <StatTile icon={Bird} label="Chicks" value={stock.Chick} />
         <StatTile icon={TrendingDown} label="Mortality (this month)" value={monthlyMortality} />
         <StatTile icon={UserPlus} label="New Arrivals (this month)" value={monthlyArrivals} />
       </div>
+
+      {pendingEvents.length > 0 && (
+        <div className="rounded-2xl border border-[var(--color-warning)]/40 bg-[var(--color-card)] p-4">
+          <div className="flex items-center gap-2">
+            <ClipboardCheck size={17} className="text-[var(--color-warning)]" />
+            <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">
+              Pending Approval ({pendingEvents.length})
+            </h2>
+          </div>
+          <p className="mt-1 text-xs text-[var(--color-muted)]">
+            Staff submissions — not counted in official stock until you approve them.
+          </p>
+
+          <div className="mt-3 flex flex-col gap-2">
+            {pendingEvents.map((event) => (
+              <div
+                key={event.id}
+                className="flex flex-col gap-3 rounded-xl border border-[var(--color-border)] p-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-[var(--color-foreground)]">
+                    {EVENT_TYPE_LABELS[event.eventType]} · {event.quantity.toLocaleString()} birds
+                  </p>
+                  <p className="mt-0.5 text-xs text-[var(--color-muted)]">
+                    {new Date(`${event.eventDate}T00:00:00`).toLocaleDateString()}
+                    {" · "}
+                    {[event.fromHousePen, event.toHousePen].filter(Boolean).join(" → ") || "No house/pen"}
+                    {event.breed ? ` · ${event.breed}` : ""}
+                    {event.ageWeeks != null ? ` · ${event.ageWeeks} weeks` : ""}
+                    {" · by "}
+                    {event.recordedByName ?? "Unknown"}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {busyId === event.id ? (
+                    <Loader2 size={16} className="spinner text-[var(--color-muted)]" />
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setRejectingEvent(event)}
+                        className="flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 text-sm font-medium text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
+                      >
+                        <X size={15} /> Reject
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleApprove(event)}
+                        className="flex min-h-[40px] items-center gap-1.5 rounded-lg bg-[var(--color-primary)] px-3 text-sm font-semibold text-white"
+                      >
+                        <Check size={15} /> Approve
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <PoultryStockBreakdownChart events={events} mortalityRecords={mortalityRecords} />
 
@@ -169,18 +278,13 @@ export default function PoultryStockPanel({
               className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] py-2 pl-9 pr-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted)] focus-visible:border-[var(--color-primary)]"
             />
           </div>
-          <select
+          <MobileSelect
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as BirdType | "All")}
-            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)]"
-          >
-            <option value="All">All bird types</option>
-            {BIRD_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type}s
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setTypeFilter(v as BirdType | "All")}
+            sheetTitle="Filter by Bird Type"
+            className="bg-[var(--color-card)] sm:w-auto"
+            options={[{ value: "All", label: "All bird types" }, ...BIRD_TYPES.map((type) => ({ value: type, label: `${type}s` }))]}
+          />
         </div>
 
         <div className="mt-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)]">
@@ -190,7 +294,7 @@ export default function PoultryStockPanel({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[980px] text-left text-sm">
+              <table className="w-full min-w-[1080px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-muted)]">
                     <th className="px-4 py-3 font-medium">Date</th>
@@ -202,6 +306,7 @@ export default function PoultryStockPanel({
                     <th className="px-4 py-3 font-medium">Source</th>
                     <th className="px-4 py-3 font-medium">From/To</th>
                     <th className="px-4 py-3 font-medium">Recorded By</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -221,6 +326,12 @@ export default function PoultryStockPanel({
                         {[event.fromHousePen, event.toHousePen].filter(Boolean).join(" → ") || "—"}
                       </td>
                       <td className="px-4 py-3 text-[var(--color-muted)]">{event.recordedByName ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        <ProductionStatusBadge status={event.reviewStatus} />
+                        {event.reviewStatus === "rejected" && event.reviewNotes && (
+                          <p className="mt-1 max-w-[180px] text-xs text-[var(--color-muted)]">{event.reviewNotes}</p>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         {busyId === event.id ? (
                           <Loader2 size={15} className="spinner text-[var(--color-muted)]" />
@@ -268,6 +379,16 @@ export default function PoultryStockPanel({
           }}
         />
       )}
+
+      <AnimatePresence>
+        {rejectingEvent && (
+          <RejectRecordDialog
+            confirming={busyId === rejectingEvent.id}
+            onCancel={() => setRejectingEvent(null)}
+            onConfirm={(reason) => void handleReject(reason)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

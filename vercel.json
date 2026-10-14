@@ -1,5 +1,5 @@
 {
   "installCommand": "pnpm install",
-  "buildCommand": "pnpm --filter @poultryhub/superadmin build",
-  "outputDirectory": "apps/superadmin/dist"
+  "buildCommand": "pnpm --filter @poultryhub/mobile build",
+  "outputDirectory": "apps/mobile/dist"
 }

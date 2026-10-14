@@ -199,7 +199,7 @@ export default function App() {
             <ToastProvider>
             <Routes>
               <Route path="/" element={<RootRoute />} />
-              <Route path="/login" element={<LoginPage getHomePathForUser={getHomePathForUser} />} />
+              <Route path="/login" element={<LoginPage getHomePathForUser={getHomePathForUser} showGoogleSignIn={false} />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/privacy" element={<PrivacyPolicyPage />} />
               <Route path="/terms" element={<TermsOfServicePage />} />
